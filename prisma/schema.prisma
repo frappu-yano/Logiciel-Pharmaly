@@ -1,0 +1,237 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  GERANT
+  CAISSIER
+}
+
+enum SiteType {
+  BOUTIQUE
+  EN_LIGNE
+}
+
+enum SaleStatus {
+  VALIDEE
+  ANNULEE
+}
+
+enum PaymentMethod {
+  ESPECES
+  CARTE
+  CHEQUE
+  VIREMENT
+}
+
+enum StockMovementType {
+  VENTE
+  ANNULATION
+  ENTREE
+  AJUSTEMENT
+}
+
+enum CashMovementType {
+  ENTREE
+  SORTIE
+}
+
+model Site {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  name      String
+  type      SiteType @default(BOUTIQUE)
+  address   String?
+  phone     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users     User[]
+  registers Register[]
+  stocks    Stock[]
+  sales     Sale[]
+  movements StockMovement[]
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  username     String   @unique
+  passwordHash String
+  role         Role     @default(CAISSIER)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  sites          Site[]
+  sales          Sale[]          @relation("SaleUser")
+  cancelledSales Sale[]          @relation("SaleCancelledBy")
+  sessions       CashSession[]   @relation("SessionUser")
+  closedSessions CashSession[]   @relation("SessionClosedBy")
+  cashMovements  CashMovement[]
+  stockMovements StockMovement[]
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
+model Product {
+  id         Int       @id @default(autoincrement())
+  name       String
+  barcode    String?   @unique
+  reference  String?
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  /// Prix en centimes
+  sellPrice  Int
+  buyPrice   Int       @default(0)
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  stocks    Stock[]
+  saleItems SaleItem[]
+  movements StockMovement[]
+
+  @@index([name])
+}
+
+model Stock {
+  productId Int
+  siteId    Int
+  quantity  Int     @default(0)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  site      Site    @relation(fields: [siteId], references: [id])
+
+  @@id([productId, siteId])
+}
+
+model StockMovement {
+  id        Int               @id @default(autoincrement())
+  productId Int
+  siteId    Int
+  /// Quantité signée : négative pour une sortie
+  quantity  Int
+  type      StockMovementType
+  note      String?
+  saleId    Int?
+  userId    Int
+  createdAt DateTime          @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  site    Site    @relation(fields: [siteId], references: [id])
+  sale    Sale?   @relation(fields: [saleId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([productId, siteId])
+}
+
+model Register {
+  id       Int           @id @default(autoincrement())
+  siteId   Int
+  name     String
+  active   Boolean       @default(true)
+  site     Site          @relation(fields: [siteId], references: [id])
+  sessions CashSession[]
+}
+
+model CashSession {
+  id           Int       @id @default(autoincrement())
+  registerId   Int
+  userId       Int
+  openedAt     DateTime  @default(now())
+  openingFloat Int
+  closedAt     DateTime?
+  closedById   Int?
+  /// Espèces attendues à la clôture (calculées)
+  expectedCash Int?
+  /// Espèces comptées par le caissier
+  countedCash  Int?
+  note         String?
+
+  register  Register       @relation(fields: [registerId], references: [id])
+  user      User           @relation("SessionUser", fields: [userId], references: [id])
+  closedBy  User?          @relation("SessionClosedBy", fields: [closedById], references: [id])
+  sales     Sale[]
+  movements CashMovement[]
+
+  @@index([registerId, closedAt])
+}
+
+model CashMovement {
+  id        Int              @id @default(autoincrement())
+  sessionId Int
+  type      CashMovementType
+  amount    Int
+  reason    String
+  userId    Int
+  createdAt DateTime         @default(now())
+
+  session CashSession @relation(fields: [sessionId], references: [id])
+  user    User        @relation(fields: [userId], references: [id])
+}
+
+model Sale {
+  id            Int        @id @default(autoincrement())
+  number        String?    @unique
+  siteId        Int
+  sessionId     Int?
+  userId        Int
+  subtotal      Int
+  discount      Int        @default(0)
+  total         Int
+  status        SaleStatus @default(VALIDEE)
+  customerName  String?
+  createdAt     DateTime   @default(now())
+  cancelledAt   DateTime?
+  cancelledById Int?
+  cancelReason  String?
+
+  site        Site            @relation(fields: [siteId], references: [id])
+  session     CashSession?    @relation(fields: [sessionId], references: [id])
+  user        User            @relation("SaleUser", fields: [userId], references: [id])
+  cancelledBy User?           @relation("SaleCancelledBy", fields: [cancelledById], references: [id])
+  items       SaleItem[]
+  payments    Payment[]
+  movements   StockMovement[]
+
+  @@index([siteId, createdAt])
+  @@index([sessionId])
+}
+
+model SaleItem {
+  id        Int    @id @default(autoincrement())
+  saleId    Int
+  productId Int
+  name      String
+  unitPrice Int
+  quantity  Int
+  total     Int
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+  id       Int           @id @default(autoincrement())
+  saleId   Int
+  method   PaymentMethod
+  amount   Int
+  /// Montant remis par le client (espèces)
+  received Int?
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+}
+
+model Setting {
+  key   String @id
+  value String
+}
