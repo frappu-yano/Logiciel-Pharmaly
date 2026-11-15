@@ -24,6 +24,7 @@ public static class ApiRoutes
     public const string EmployeeSignOut = "/acces/employe/fin";
     public const string CurrentIdentity = "/acces/moi";
     public const string Employees = "/employes";
+    public const string Stores = "/sites";
 }
 
 /// <summary>Réponse d'erreur du serveur : un code stable et un message lisible par l'employé.</summary>
@@ -69,3 +70,5 @@ public sealed record SetPermissionsRequest(IReadOnlyList<PermissionGrant> Permis
 public sealed record SetEmployeeStateRequest(bool IsActive);
 
 public sealed record ResetSecretRequest(string Secret);
+
+public sealed record StoreSummary(Guid Id, string Code, string Name, string Kind);

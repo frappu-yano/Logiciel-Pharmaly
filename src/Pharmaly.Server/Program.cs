@@ -122,6 +122,7 @@ app.MapGet(ApiRoutes.ProductByBarcode + "/{barcode}", async (string barcode, Pro
 
 app.MapAccessEndpoints();
 app.MapEmployeeAdminEndpoints();
+app.MapStoreEndpoints();
 
 await app.RunAsync();
 
