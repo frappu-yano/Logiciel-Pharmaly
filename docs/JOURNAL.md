@@ -55,8 +55,18 @@ passage du code-barres en collation « C ».
 Non fait dans ce lot, volontairement : identification, permissions, chiffrement des
 échanges (lot 1) ; stock (lot 2).
 
-**À vérifier** : résultat de l'intégration continue sous Windows ; mesure sur un poste
-Celeron J4025 / 4 Go avec BML ouvert.
+Vérifié sur un vrai Windows (machine GitHub Actions, exécution n° 3, réussie) :
+- les 37 tests passent ; les deux exécutables autonomes sont produits (archive de 91 Mo) ;
+- `PharmalyGestion.exe` s'ouvre et joint le serveur ; essai automatique sur 20 000
+  produits fictifs : 80 recherches, 95 % sous 29 ms ; 80 lignes ajoutées en 0,3 ms
+  chacune ; démarrage en 1,3 s ; mémoire du poste 170 Mo après l'essai (131 Mo à
+  l'ouverture) ; mémoire du serveur 68 Mo (relevée à la première exécution).
+- Défaut trouvé par cet essai et corrigé : avec l'adresse « localhost », Windows tente
+  d'abord l'IPv6 et le poste ne joignait pas le serveur. Adresse par défaut passée en
+  127.0.0.1 et serveur à l'écoute en IPv4 et IPv6.
+
+Cette machine est bien plus puissante qu'un poste de magasin.
+**Reste à mesurer** : un poste Celeron J4025 / 4 Go avec BML ouvert.
 
 **En attente de la direction** : choix du site pilote ; O2 (transfert simple) avant le lot 3.
 
