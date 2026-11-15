@@ -9,3 +9,6 @@ TestResults/
 # Configuration locale (adresses, mots de passe)
 appsettings.Local.json
 poste.local.json
+
+# Dossiers de travail temporaires des agents
+.claude/worktrees/
