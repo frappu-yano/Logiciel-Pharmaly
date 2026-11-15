@@ -53,24 +53,36 @@ Aucune règle métier ne passe en « validé » sans accord explicite.
 | P9 | Fichiers d'échange entre sites signés et chiffrés | Un e-mail traverse Internet : le fichier doit être illisible et infalsifiable hors des sites |
 | P10 | Accès à la base par SQL explicite (Npgsql, Dapper) et migrations SQL versionnées | Transactions et verrous maîtrisés, démarrage rapide sur petit poste |
 
-## Ouvert — à trancher avant le lot 3
+## Choix par défaut pris le 16/11/2026 — À VALIDER PAR LA DIRECTION
 
-**O1. Tranché le 15/11** : un serveur par site, échanges par fichier, site pilote
-d'abord. Reste à choisir le site pilote.
+La direction a demandé de poursuivre toute la nuit sans attendre de réponse. Pour ne pas
+bloquer, les recommandations ci-dessous sont appliquées **comme valeurs par défaut**.
+Aucune n'est une règle validée : chacune peut être changée, et le code les isole (réglage
+ou constante nommée) pour que le changement soit simple.
 
-**O2. Transfert simple dépôt → magasin en V1.** Le cahier des charges exclut les
-transferts complexes, mais sans aucun transfert les magasins n'ont rien à vendre.
-Recommandation : un transfert en une étape (sortie du dépôt et entrée en magasin dans la
-même transaction), sans état « en transit ».
+| # | Sujet | Choix appliqué par défaut |
+|---|---|---|
+| D1 | Identification de l'employé | Matricule court + code personnel |
+| D2 | Verrouillage | 5 échecs → 5 minutes ; session employé de 12 h ; verrouillage du poste après 5 minutes d'inactivité |
+| D3 | Transfert dépôt → magasin (O2) | Transfert simple en une étape : sortie et entrée dans la même transaction, sans état « en transit ». Sur un site pilote unique, il sert entre emplacements du même serveur |
+| D4 | Ligne de bon dont le stock est déjà parti (O5) | Réduction ou annulation refusée au-delà de la quantité encore présente à l'emplacement ; message clair ; correction par ajustement d'inventaire audité |
+| D5 | Vente impayée (O6) | Client obligatoire ; pas de plafond de crédit |
+| D6 | TPE (O7) | Terminal autonome : le caissier confirme à l'écran « paiement accepté » ou « refusé ». Rien n'est soldé avant « accepté » |
+| D7 | Raccourci TPE | Réglable. Valeur **provisoire** : F8. `*` = Espèces est confirmé |
+| D8 | Motifs de retour (O8) | Les quatre exemples du cahier des charges, modifiables : revendable → stock vendable ; endommagé → pas de réintégration ; défectueux → emplacement « mis à l'écart » ; erreur de vente → stock vendable |
+| D9 | Changement de prix de vente (O9) | Soumis à la permission dédiée ; approbation d'un responsable prévue comme réglage, désactivée par défaut |
+| D10 | Rôles (O10) | Un seul modèle fourni : « Administrateur » (tous les droits). Les autres profils attendent la liste de la direction |
+| D11 | Clôture quotidienne (O3) | Une clôture par magasin et par jour, regroupant toutes ses caisses, avec comptage des espèces par caisse. Une vente saisie après la clôture appartient à la journée suivante |
+| D12 | Remises | En montant ou en pourcentage, sur la vente entière ; jamais supérieures au total |
+| D13 | Annulation d'une vente | Possible tant que la journée n'est pas clôturée ; au-delà, passer par un retour |
 
-## Ouvert — à trancher avant le lot concerné
+**Non décidé et donc NON développé : le mode secours hors ligne (O4).** La direction a
+demandé explicitement de ne pas choisir sans son accord. Le code le prépare (identifiants
+générés par le poste, idempotence) mais aucune vente hors ligne n'est possible.
 
-**O3. Périmètre de la clôture quotidienne (lot 7).** Recommandation : une clôture par
-magasin et par jour, regroupant toutes ses caisses, avec comptage des espèces par caisse,
-et une vue consolidée des magasins en lecture. À confirmer aussi : ce qui se passe pour
-une vente saisie après la clôture (recommandation : elle appartient à la journée suivante).
+## Ouvert
 
-**O4. Stock en mode secours (lot 9).**
+**O4. Stock en mode secours.**
 
 | Stratégie | Garantit l'absence de survente | Continuité de vente | Complexité |
 |---|---|---|---|
@@ -78,30 +90,9 @@ une vente saisie après la clôture (recommandation : elle appartient à la jour
 | Dernier stock connu | Non, si deux caisses isolées vendent le même article | Bonne | Faible |
 | Ventes provisoires avec régularisation | Non | Totale | Moyenne |
 
-Recommandation : dernier stock connu comme limite locale, et toute vente de secours
-enregistrée comme provisoire puis rapprochée à la reconnexion ; un conflit crée un écart
-à régulariser, audité, jamais un rejet silencieux. En boutique, le produit est
-physiquement dans la main du client : un conflit révèle en pratique une erreur de stock
-plutôt qu'une vraie double vente. Opérations de secours proposées : ventes en espèces et
-TPE uniquement ; pas d'impayé, de retour, de règlement de créance ni de bon.
-
-**O5. Annulation ou réduction d'une ligne de bon dont le stock est déjà parti (lot 3).**
-Recommandation : refuser au-delà de la quantité encore présente à l'emplacement et
-orienter vers une correction d'inventaire auditée.
-
-**O6. Vente impayée (lot 5).** Client obligatoire ? Plafond de crédit ? Recommandation :
-client obligatoire (le règlement groupé « du même client » en dépend), pas de plafond en V1.
-
-**O7. TPE (lot 5).** Le terminal est-il autonome (le caissier confirme à l'écran) ou
-relié au poste ? Touche de raccourci TPE à choisir.
-
-**O8. Motifs de retour et destination du stock (lot 6).** Liste proposée dans le cahier
-des charges, à valider.
-
-**O9. Changement de prix de vente (lot 2).** Approbation d'un responsable requise ou non.
-
-**O10. Modèles de rôles (lot 1).** À quel profil correspondent les 13 permissions
-sélectionnées précédemment (liste non transmise).
+Recommandation : dernier stock connu comme limite locale, ventes de secours provisoires
+rapprochées à la reconnexion, tout conflit enregistré comme écart à régulariser. Opérations
+de secours proposées : ventes en espèces et TPE uniquement.
 
 ## Écarts relevés
 
