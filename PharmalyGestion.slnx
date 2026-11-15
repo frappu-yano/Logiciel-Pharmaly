@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Pharmaly.Contracts/Pharmaly.Contracts.csproj" />
+    <Project Path="src/Pharmaly.Domain/Pharmaly.Domain.csproj" />
+    <Project Path="src/Pharmaly.Poste/Pharmaly.Poste.csproj" />
+    <Project Path="src/Pharmaly.Server/Pharmaly.Server.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Pharmaly.Tests/Pharmaly.Tests.csproj" />
+  </Folder>
+</Solution>

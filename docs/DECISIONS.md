@@ -31,6 +31,10 @@ Aucune règle métier ne passe en « validé » sans accord explicite.
 - **Logiciel natif** : aucune interface web, aucun navigateur (décision du 15/11).
 - **Communication sans Internet** : postes et serveur dialoguent par le réseau interne
   uniquement (décision du 15/11).
+- **Un serveur par site**, sites séparés. Les échanges entre sites se font par fichier,
+  sur clé USB ou par e-mail (décision du 15/11).
+- **Un seul site pilote d'abord**, pour juger la rapidité, la lourdeur et la sécurité
+  (décision du 15/11).
 - `pharmaly-app` est un projet distinct : ne pas y toucher, ne rien en reprendre.
 - Charte : turquoise #2ECAC8, orange pêche #F5A97A, beige clair, noir, Poppins.
 
@@ -39,26 +43,20 @@ Aucune règle métier ne passe en « validé » sans accord explicite.
 | # | Proposition | Raison |
 |---|---|---|
 | P1 | Serveur ASP.NET Core (.NET 10 LTS) + PostgreSQL | Préférence exprimée, service Windows, mémoire faible |
-| P2 | Logiciel natif Avalonia (.NET), avec repli WPF si le budget mémoire n'est pas tenu | Natif, lançable sur le Mac mini, testable automatiquement |
+| P2 | Logiciel natif Avalonia (.NET), avec repli WPF si le budget mémoire n'est pas tenu. **Utilisé pour le lot 0 ; à confirmer par la mesure sur un Celeron J4025** | Natif, lançable sur le Mac mini, testable automatiquement |
 | P3 | Impression, tiroir et journal de secours intégrés au logiciel du poste | Un seul programme par poste |
 | P4 | Stock = journal en ajout seul + solde avec `CHECK >= 0` | Rend la survente impossible côté base |
 | P5 | Identifiant d'opération sur toute écriture | Double clic, relance réseau, resynchronisation |
 | P6 | Montants `numeric(12,2)` / `decimal`, quantités `numeric(12,3)` | Aucune erreur d'arrondi |
-| P7 | Poursuivre dans le dépôt `Logiciel-Pharmaly`, archiver le prototype Next.js sous une étiquette git, passer le dépôt en privé | Un seul dépôt, historique conservé |
+| P7 | Poursuivre dans le dépôt `Logiciel-Pharmaly`. **Fait le 15/11** : prototype déplacé dans `prototype/`, sans rien supprimer. Reste recommandé : passer le dépôt en privé | Un seul dépôt, historique conservé |
 | P8 | Compilation et tests sur Windows par GitHub Actions | Aucun Windows disponible en développement |
+| P9 | Fichiers d'échange entre sites signés et chiffrés | Un e-mail traverse Internet : le fichier doit être illisible et infalsifiable hors des sites |
+| P10 | Accès à la base par SQL explicite (Npgsql, Dapper) et migrations SQL versionnées | Transactions et verrous maîtrisés, démarrage rapide sur petit poste |
 
-## Ouvert — bloquant pour démarrer
+## Ouvert — à trancher avant le lot 3
 
-**O1. Liaison entre les trois sites.** La communication se fait sans Internet : un
-serveur ne peut donc servir que les postes de son propre réseau local. Les bons sont
-saisis au dépôt et les ventes se font en magasin ; il faut savoir comment l'information
-passe d'un site à l'autre.
-- A. *Les sites partagent un même réseau local* (même bâtiment ou liaison privée
-  câblée) : un seul serveur, un seul stock, transferts immédiats.
-- B. *Les sites sont séparés* : un serveur par site. Le transfert dépôt → magasin passe
-  par un fichier de transfert signé, porté sur clé USB avec la marchandise, importé à
-  la réception ; le catalogue voyage de la même façon. Chaque site reste autonome.
-- C. *Démarrer la V1 sur un seul site pilote*, et traiter l'échange entre sites ensuite.
+**O1. Tranché le 15/11** : un serveur par site, échanges par fichier, site pilote
+d'abord. Reste à choisir le site pilote.
 
 **O2. Transfert simple dépôt → magasin en V1.** Le cahier des charges exclut les
 transferts complexes, mais sans aucun transfert les magasins n'ont rien à vendre.

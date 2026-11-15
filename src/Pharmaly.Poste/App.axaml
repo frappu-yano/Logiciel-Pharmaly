@@ -1,0 +1,75 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Pharmaly.Poste.App"
+             RequestedThemeVariant="Light">
+  <Application.Resources>
+    <FontFamily x:Key="PharmalyFont">avares://PharmalyGestion/Assets/Fonts#Poppins</FontFamily>
+    <!-- Charte Pharmaly -->
+    <Color x:Key="TurquoiseColor">#2ECAC8</Color>
+    <Color x:Key="PeachColor">#F5A97A</Color>
+    <Color x:Key="BeigeColor">#FAF6EF</Color>
+    <Color x:Key="InkColor">#111111</Color>
+    <SolidColorBrush x:Key="TurquoiseBrush" Color="{StaticResource TurquoiseColor}" />
+    <SolidColorBrush x:Key="TurquoiseSoftBrush" Color="#D9F5F4" />
+    <SolidColorBrush x:Key="PeachBrush" Color="{StaticResource PeachColor}" />
+    <SolidColorBrush x:Key="PeachSoftBrush" Color="#FDEBDD" />
+    <SolidColorBrush x:Key="BeigeBrush" Color="{StaticResource BeigeColor}" />
+    <SolidColorBrush x:Key="InkBrush" Color="{StaticResource InkColor}" />
+    <SolidColorBrush x:Key="MutedBrush" Color="#5C5A55" />
+    <SolidColorBrush x:Key="LineBrush" Color="#E4DDD0" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <Style Selector="Window">
+      <Setter Property="FontFamily" Value="{StaticResource PharmalyFont}" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="Background" Value="{StaticResource BeigeBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+    <Style Selector="Border.status">
+      <Setter Property="Background" Value="{StaticResource PeachBrush}" />
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="Padding" Value="12,5" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.status.connected">
+      <Setter Property="Background" Value="{StaticResource TurquoiseBrush}" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Padding" Value="12,11" />
+    </Style>
+    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource TurquoiseSoftBrush}" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource TurquoiseBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="18,12" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinHeight" Value="46" />
+    </Style>
+    <Style Selector="Button.quiet">
+      <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="14,10" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinHeight" Value="42" />
+      <Setter Property="MinWidth" Value="46" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+  </Application.Styles>
+</Application>

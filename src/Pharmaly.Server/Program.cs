@@ -1,0 +1,78 @@
+using System.Reflection;
+using Npgsql;
+using Pharmaly.Contracts;
+using Pharmaly.Server.Catalog;
+using Pharmaly.Server.Database;
+
+const string DemoDataArgument = "--donnees-fictives";
+const string MigrateOnlyArgument = "--migrer";
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseWindowsService(options => options.ServiceName = "Pharmaly Gestion - Serveur");
+
+// Réglages propres au site (mot de passe de la base) : fichier appsettings.Local.json,
+// jamais versionné. Une valeur fournie par l'environnement ou par les tests l'emporte.
+// La lecture se fait à la création du service, quand la configuration est complète.
+builder.Services.AddSingleton(services =>
+{
+    var connectionString = services.GetRequiredService<IConfiguration>().GetConnectionString("Pharmaly")
+        ?? new ConfigurationBuilder()
+            .SetBasePath(services.GetRequiredService<IHostEnvironment>().ContentRootPath)
+            .AddJsonFile("appsettings.Local.json", optional: true)
+            .Build()
+            .GetConnectionString("Pharmaly")
+        ?? throw new InvalidOperationException(
+            "Chaîne de connexion absente : renseignez ConnectionStrings:Pharmaly dans appsettings.Local.json.");
+    return NpgsqlDataSource.Create(connectionString);
+});
+builder.Services.AddSingleton<MigrationRunner>();
+builder.Services.AddSingleton<ProductQueries>();
+builder.Services.AddSingleton<DemoDataSeeder>();
+
+var app = builder.Build();
+
+await app.Services.GetRequiredService<MigrationRunner>().ApplyAsync();
+
+if (args.Contains(MigrateOnlyArgument))
+{
+    return;
+}
+
+var demoIndex = Array.IndexOf(args, DemoDataArgument);
+if (demoIndex >= 0)
+{
+    var count = demoIndex + 1 < args.Length && int.TryParse(args[demoIndex + 1], out var parsed) ? parsed : 20_000;
+    await app.Services.GetRequiredService<DemoDataSeeder>().SeedAsync(count);
+    app.Logger.LogInformation("{Count} produits fictifs chargés.", count);
+    return;
+}
+
+var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
+
+app.MapGet(ApiRoutes.Health, async (NpgsqlDataSource dataSource, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        var schemaVersion = await MigrationRunner.ReadSchemaVersionAsync(connection);
+        return Results.Ok(new HealthResponse("OK", version, true, schemaVersion, DateTimeOffset.Now));
+    }
+    catch (NpgsqlException)
+    {
+        return Results.Json(
+            new HealthResponse("BASE_INDISPONIBLE", version, false, 0, DateTimeOffset.Now),
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+});
+
+app.MapGet(ApiRoutes.ProductSearch, async (string? q, int? limite, ProductQueries queries, CancellationToken cancellationToken) =>
+    Results.Ok(await queries.SearchAsync(q, limite ?? ProductQueries.DefaultLimit, cancellationToken)));
+
+app.MapGet(ApiRoutes.ProductByBarcode + "/{barcode}", async (string barcode, ProductQueries queries, CancellationToken cancellationToken) =>
+    await queries.FindByBarcodeAsync(barcode, cancellationToken) is { } product
+        ? Results.Ok(product)
+        : Results.NotFound());
+
+await app.RunAsync();
+
+public partial class Program;

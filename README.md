@@ -1,67 +1,65 @@
-# Pharmaly — logiciel de gestion
+# Pharmaly Gestion
 
-Application web de gestion pour les boutiques Pharmaly : vente au comptoir, caisse,
-stock, utilisateurs et sites. Elle s'installe sur un serveur et s'utilise depuis un
-navigateur, sur ordinateur (postes de caisse) comme sur téléphone.
+Logiciel de gestion des points de vente Pharmaly : bons fournisseurs, ventes, caisse.
+Logiciel Windows natif, sans navigateur ; toute la communication passe par le réseau
+interne du site, jamais par Internet.
 
-## Fonctionnalités de cette première version
+**État : lot 0 (socle).** Le serveur, la base et le logiciel du poste démarrent et
+dialoguent ; un écran d'essai mesure la rapidité sur un catalogue fictif. Aucune vente
+réelle n'est encore enregistrée. Voir `docs/JOURNAL.md` pour l'avancement.
 
-- **Caisse** : lecture de codes-barres, recherche de produits, panier, remise, paiement
-  (espèces, carte, chèque, virement), calcul de la monnaie à rendre, ticket imprimable.
-- **Sessions de caisse** : ouverture avec fond de caisse, entrées et sorties d'espèces,
-  clôture avec comptage et calcul de l'écart, rapport de caisse imprimable.
-- **Ventes** : historique par jour et par site, détail, réimpression du ticket,
-  annulation par un gérant (remise en stock automatique).
-- **Produits et stock** : fiche produit, prix, catégories, stock séparé par site,
-  réceptions et corrections d'inventaire, historique des mouvements en base.
-- **Utilisateurs et sites** : trois rôles (administrateur, gérant, caissier), accès
-  limité aux sites affectés, plusieurs boutiques et une boutique en ligne.
+## Organisation
 
-## Matériel
-
-- **Lecteur de codes-barres** : tout lecteur USB ou Bluetooth en mode clavier. Sur
-  l'écran de caisse, scannez directement : le produit est ajouté au panier.
-- **Imprimante de tickets** : toute imprimante thermique 80 mm installée sur le poste.
-  Le ticket s'imprime par la fenêtre d'impression du navigateur. Pour imprimer sans
-  fenêtre de confirmation, lancez Chrome avec l'option `--kiosk-printing` et
-  choisissez l'imprimante de tickets par défaut.
-- **Tiroir-caisse** : branché sur l'imprimante, il s'ouvre à l'impression si l'option
-  est activée dans le pilote de l'imprimante.
-
-## Installation sur un serveur
-
-Prérequis : Node.js 22 et PostgreSQL 16.
-
-```bash
-# 1. Base de données
-sudo -u postgres psql -c "CREATE USER pharmaly WITH PASSWORD 'MOT_DE_PASSE'"
-sudo -u postgres psql -c "CREATE DATABASE pharmaly OWNER pharmaly"
-
-# 2. Configuration
-cp .env.example .env      # puis renseigner DATABASE_URL et SESSION_SECRET
-
-# 3. Installation
-npm ci
-npm run db:migrate        # crée les tables
-npm run db:seed           # crée les sites, les caisses et le compte « admin »
-npm run build
-npm run start             # http://ADRESSE_DU_SERVEUR:3000
-```
-
-`npm run db:seed` affiche une seule fois le mot de passe du compte `admin`. Changez-le
-ensuite dans **Paramètres → Utilisateurs**. Pour essayer le logiciel avec quelques
-produits fictifs : `SEED_DEMO=1 npm run db:seed`.
-
-Si le logiciel est accessible depuis Internet, placez-le derrière HTTPS (nginx ou
-Caddy) et mettez `COOKIE_SECURE="true"` dans `.env`.
+| Dossier | Contenu |
+|---|---|
+| `src/Pharmaly.Server` | Serveur du site (service Windows) : règles métier, base PostgreSQL, migrations |
+| `src/Pharmaly.Poste` | Logiciel installé sur chaque poste (`PharmalyGestion.exe`) |
+| `src/Pharmaly.Domain` | Règles communes : montants, codes-barres, recherche |
+| `src/Pharmaly.Contracts` | Messages échangés entre le poste et le serveur |
+| `tests/Pharmaly.Tests` | Tests automatiques (règles, serveur sur vraie base, fenêtre) |
+| `docs/` | Architecture, décisions, plan, journal |
+| `prototype/` | Ancienne maquette web du 13/11, conservée pour mémoire, non utilisée |
 
 ## Développement
 
+Prérequis : SDK .NET 10 et PostgreSQL 16 ou plus récent.
+
 ```bash
-npm run dev         # serveur de développement
-npm run typecheck   # vérification TypeScript
-npm run lint        # contrôle du code
+# Base de développement
+psql -U postgres -c "CREATE ROLE pharmaly LOGIN PASSWORD 'pharmaly' CREATEDB"
+psql -U postgres -c "CREATE DATABASE pharmaly_gestion_dev OWNER pharmaly"
+
+# Réglage local du serveur (fichier non versionné)
+cat > src/Pharmaly.Server/appsettings.Local.json <<'JSON'
+{ "ConnectionStrings": { "Pharmaly": "Host=localhost;Database=pharmaly_gestion_dev;Username=pharmaly;Password=pharmaly" } }
+JSON
+
+dotnet test                                                          # tous les tests
+dotnet run --project src/Pharmaly.Server -- --donnees-fictives 20000 # catalogue fictif, base vide uniquement
+dotnet run --project src/Pharmaly.Server                             # serveur sur le port 5080
+dotnet run --project src/Pharmaly.Poste                              # logiciel du poste
 ```
 
-Les montants sont stockés en centimes (entiers) et affichés en dinars (DA).
-Le schéma de la base est dans `prisma/schema.prisma`.
+## Exécutables Windows
+
+Chaque envoi sur GitHub lance la compilation et les tests sous Linux et sous Windows,
+puis un essai de rapidité du logiciel sur un vrai Windows. Les exécutables sont
+téléchargeables dans l'onglet **Actions** du dépôt (artefact `pharmaly-gestion-windows`).
+
+Sur un poste d'essai :
+
+1. Installer PostgreSQL et créer la base (commandes ci-dessus).
+2. Placer `Pharmaly.Server.exe` dans un dossier, avec un fichier `appsettings.Local.json`
+   contenant la chaîne de connexion.
+3. Lancer une fois `Pharmaly.Server.exe --donnees-fictives 20000`, puis `Pharmaly.Server.exe`.
+4. Sur le poste, régler l'adresse du serveur dans `poste.json`, puis lancer
+   `PharmalyGestion.exe`. La touche **F9** lance l'essai de rapidité et affiche la mémoire
+   utilisée et les temps de réponse.
+
+Options du poste : `--serveur http://adresse:5080`, `--essai-auto`, `--rapport fichier.json`.
+
+## Limites actuelles
+
+- Aucune identification : le serveur de ce lot ne doit tourner que sur un réseau d'essai,
+  avec des données fictives. Les comptes et les permissions arrivent au lot 1.
+- Les échanges poste-serveur ne sont pas encore chiffrés.

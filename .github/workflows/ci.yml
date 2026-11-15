@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  linux:
+    name: Tests (Linux)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pharmaly
+          POSTGRES_PASSWORD: pharmaly
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pharmaly" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet test -c Release
+        env:
+          PHARMALY_TEST_POSTGRES: Host=localhost;Username=pharmaly;Password=pharmaly;Database=postgres
+
+  windows:
+    name: Tests, exécutables et essai de rapidité (Windows)
+    runs-on: windows-latest
+    env:
+      PGPASSWORD: root
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Démarrer PostgreSQL
+        shell: pwsh
+        run: |
+          $service = Get-Service -Name "postgresql*" | Select-Object -First 1
+          Set-Service -Name $service.Name -StartupType Manual
+          Start-Service -Name $service.Name
+          & "$env:PGBIN\psql.exe" -U postgres -c "CREATE ROLE pharmaly LOGIN PASSWORD 'pharmaly' CREATEDB"
+          & "$env:PGBIN\psql.exe" -U postgres -c "CREATE DATABASE pharmaly_essai OWNER pharmaly"
+          & "$env:PGBIN\psql.exe" -U postgres -c "SELECT version()"
+
+      - name: Tests
+        run: dotnet test -c Release
+        env:
+          PHARMALY_TEST_POSTGRES: Host=localhost;Username=pharmaly;Password=pharmaly;Database=postgres
+
+      - name: Produire les exécutables Windows
+        shell: pwsh
+        run: |
+          dotnet publish src/Pharmaly.Server -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=none -o publish/serveur
+          dotnet publish src/Pharmaly.Poste -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o publish/poste
+          Get-ChildItem publish -Recurse -File | Select-Object FullName, @{n="Mo";e={[math]::Round($_.Length/1MB,1)}} | Format-Table -AutoSize
+
+      - name: Essai de rapidité sur Windows
+        shell: pwsh
+        run: |
+          $settings = '{ "ConnectionStrings": { "Pharmaly": "Host=localhost;Database=pharmaly_essai;Username=pharmaly;Password=pharmaly" } }'
+          Set-Content -Path publish/serveur/appsettings.Local.json -Value $settings -Encoding utf8
+          Push-Location publish/serveur
+          & .\Pharmaly.Server.exe --donnees-fictives 20000
+          if ($LASTEXITCODE -ne 0) { throw "Chargement des données fictives en échec" }
+          $server = Start-Process -FilePath .\Pharmaly.Server.exe -PassThru -RedirectStandardOutput serveur.log -RedirectStandardError serveur-erreurs.log
+          Pop-Location
+          Start-Sleep -Seconds 5
+          Invoke-RestMethod http://localhost:5080/sante | ConvertTo-Json
+
+          $report = Join-Path $PWD "publish\rapport-essai-windows.json"
+          $poste = Start-Process -FilePath publish\poste\PharmalyGestion.exe -ArgumentList "--essai-auto", "--rapport", "`"$report`"" -PassThru
+          if (-not $poste.WaitForExit(120000)) { $poste.Kill(); throw "Le logiciel du poste ne s'est pas terminé en 2 minutes" }
+
+          $server.Refresh()
+          "Mémoire du serveur après l'essai : {0:N0} Mo" -f ($server.WorkingSet64 / 1MB)
+          Stop-Process -Id $server.Id -Force
+          if (-not (Test-Path $report)) { throw "Aucun rapport produit : la fenêtre ne s'est pas ouverte" }
+          Get-Content $report
+          $result = Get-Content $report | ConvertFrom-Json
+          if (-not $result.ServerReachable) { throw "Le poste n'a pas joint le serveur" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pharmaly-gestion-windows
+          path: |
+            publish/serveur/Pharmaly.Server.exe
+            publish/serveur/appsettings.json
+            publish/poste/PharmalyGestion.exe
+            publish/poste/poste.json
+            publish/rapport-essai-windows.json
+          if-no-files-found: error
