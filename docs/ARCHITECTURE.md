@@ -12,14 +12,14 @@ Celeron J4025 / 4 Go pendant le lot 0 ; aucune n'a été mesurée à ce jour.
 |---|---|
 | Machine | Conteneur Linux dans le cloud (Ubuntu 24.04, 4 cœurs, 15 Go), **pas le Mac mini** |
 | Mac mini | Non joignable depuis cette session (aucun dossier partagé via Remote Control) |
-| .NET SDK | **Absent**. nuget.org et packages.microsoft.com sont joignables : installation possible |
+| .NET SDK | Absent à l'audit ; **10.0.115 installé le 15/11** dans le conteneur (pas dans le dépôt) |
 | PostgreSQL | 16.15 installé |
 | Node.js | 22.23 |
 | Docker | Client 29.9 présent |
 | Windows | Aucun poste Windows accessible : l'exécution sur Windows ne peut pas être testée ici |
 
-Conséquences : le code est écrit et testé ici (API, base, tests de concurrence,
-interface dans un navigateur sans écran), versionné sur GitHub, et **compilé et testé
+Conséquences : le code est écrit et testé ici (serveur, base, tests de concurrence,
+écrans natifs sans écran physique), versionné sur GitHub, et **compilé et testé
 sur un vrai Windows par GitHub Actions** (`windows-latest`). Les mesures sur les petits
 postes et les essais d'imprimante se font sur vos machines, avec votre aide.
 
@@ -55,47 +55,57 @@ retenu pour le journal local des caisses.
 
 ### Poste de travail
 
-| Option | RAM estimée | Hors ligne | Impression ticket | Testable hors Windows | Verdict |
-|---|---|---|---|---|---|
-| Electron | 300–500 Mo | Oui | Oui | Oui | Écarté : embarque un navigateur complet par application |
-| Interface web dans Edge en mode application | 200–350 Mo | Avec agent local | Via agent local | **Oui, intégralement** | **Recommandé** |
-| Client natif WPF / WinForms | 80–150 Mo | Oui | Oui | Non : ni lancé ni testé sur Mac ou Linux | Écarté pour la V1 |
-| Client natif Avalonia | 100–200 Mo | Oui | Limité | Oui | **Solution de repli** |
-| Tauri / WebView2 | 200–300 Mo | Oui | Oui | Partiel | Pas de gain net sur Edge, outillage en plus |
+**Décision de la direction (15/11) : un vrai logiciel natif, aucune interface web.**
+Les options web (navigateur, Edge en mode application, Electron, Tauri) sont écartées.
 
-Pourquoi l'interface web : Edge est déjà présent sur tout Windows 10/11 (rien à
-installer), la même interface sert aux postes, au Mac et au téléphone, et chaque écran
-peut être testé automatiquement ici avant d'arriver en magasin. Un client WPF serait
-plus léger mais je ne pourrais rien en vérifier avant vos essais.
+| Option native | RAM estimée | Lancement et tests hors Windows | Aspect | Verdict |
+|---|---|---|---|---|
+| **Avalonia (.NET)** | 100–200 Mo | **Oui** : se lance sur le Mac mini, tests automatiques sans écran | Identique sur toutes les machines, charte libre | **Recommandé** |
+| WPF | 80–150 Mo | Non : ne s'exécute que sous Windows | Windows classique | Alternative si Avalonia déçoit sur les petits postes |
+| WinForms | 50–100 Mo | Non | Daté, charte difficile à appliquer | Écarté |
+
+Pourquoi Avalonia : c'est un logiciel compilé, sans navigateur, livré comme un `.exe`
+Windows, et c'est le seul toolkit natif que l'on peut lancer sur le Mac mini et tester
+automatiquement dans l'environnement de développement. Avec WPF, rien ne pourrait être
+vérifié avant vos essais en magasin.
+
+**Essai de faisabilité exécuté le 15/11** (jetable, hors dépôt), avec .NET SDK 10.0.115
+et Avalonia 12.1.6 :
+- une fenêtre minimale se compile et s'ouvre sans écran sous Linux : **65 Mo** de mémoire
+  pour le processus (fenêtre vide ; l'application réelle consommera davantage) ;
+- un exécutable Windows autonome est produit depuis Linux : `PosSpike.exe`, 104 Mo sur
+  disque, sans rien à installer sur le poste. **Il n'a pas été lancé sous Windows.**
 
 **Garde-fou.** Le lot 0 mesure la mémoire et la réactivité sur un Celeron J4025 avec BML
-ouvert. Budget visé : moins de 350 Mo pour l'interface, moins de 100 ms pour l'ajout
-d'une ligne. Si le budget n'est pas tenu, le poste passe sur un client Avalonia branché
-sur la même API ; le serveur et la base ne changent pas.
+ouvert. Budget visé : moins de 250 Mo pour le logiciel, moins de 100 ms pour l'ajout
+d'une ligne. Si le budget n'est pas tenu, l'écran est réécrit en WPF ; le serveur, la
+base et la logique métier ne changent pas.
 
 ## 3. Composants
 
+**Décision de la direction (15/11) : toute la communication se fait sans Internet.**
+Les postes parlent au serveur par le réseau interne du site (câble ou Wi-Fi du magasin).
+Rien ne sort du site, aucun service en ligne n'est utilisé.
+
 ```
-Poste de caisse (Windows)                 Serveur du magasin ou central (Windows)
+Poste (Windows)                           Serveur du site (Windows)
 ┌────────────────────────────┐            ┌──────────────────────────────────┐
-│ Edge (mode application)    │            │ Pharmaly.Server (service Windows)│
-│   interface TypeScript     │   HTTPS    │   API + règles métier            │
-│            │               │◄──────────►│   contrôle des permissions       │
-│ Pharmaly.Poste (service)   │            │   sert l'interface               │
-│   impression ESC/POS       │            │            │                     │
-│   tiroir-caisse            │            │ PostgreSQL                       │
-│   journal local SQLite     │            │   + sauvegardes planifiées       │
-│   file de synchronisation  │            └──────────────────────────────────┘
-└────────────────────────────┘
+│ Pharmaly Gestion (.exe)    │  réseau    │ Pharmaly.Server (service Windows)│
+│   écrans natifs            │  interne   │   règles métier                  │
+│   impression ESC/POS       │◄──────────►│   contrôle des permissions       │
+│   tiroir-caisse            │  du site   │            │                     │
+│   journal local de secours │            │ PostgreSQL                       │
+│   (SQLite)                 │            │   + sauvegardes planifiées       │
+└────────────────────────────┘            └──────────────────────────────────┘
 ```
 
-- **Pharmaly.Server** : toute la logique métier et tous les contrôles. L'interface ne
+- **Pharmaly.Server** : toute la logique métier et tous les contrôles. Le poste ne
   décide de rien.
-- **Pharmaly.Poste** : petit service local sur chaque caisse. Il imprime, ouvre le
-  tiroir, garde l'interface disponible quand le serveur ne répond plus et conserve les
-  opérations de secours. Introduit aux lots 8 et 9, pas avant.
-- **Interface** : application TypeScript statique, sans animation, pilotable
-  entièrement au clavier, polices locales.
+- **Pharmaly Gestion** : le logiciel installé sur chaque poste. Il affiche, imprime,
+  ouvre le tiroir et conserve les opérations de secours quand le serveur ne répond plus.
+  Un seul programme par poste, pas de service supplémentaire.
+- **Protocole** : appels HTTP sur le réseau interne uniquement, entre le logiciel et le
+  serveur. C'est un détail technique invisible ; il n'y a ni navigateur ni page web.
 
 ## 4. Modèle transactionnel
 
@@ -171,9 +181,10 @@ articles vendus à l'unité. Identifiants : UUID générés côté poste pour le
 
 ## 6. Déploiement, sauvegardes, évolution
 
-- **Serveur** : un PC parmi les plus puissants, PostgreSQL et Pharmaly.Server installés
-  comme services Windows. La topologie (un serveur pour tous les sites ou un par site)
-  est une décision ouverte : voir DECISIONS.md.
+- **Serveur** : un PC parmi les plus puissants de chaque réseau local, PostgreSQL et
+  Pharmaly.Server installés comme services Windows. Sans Internet, deux sites qui ne
+  partagent pas le même réseau local ne peuvent pas partager un serveur : voir O1 dans
+  DECISIONS.md.
 - **Mises à jour** : un exécutable autonome par composant, remplacé par un installateur ;
   migrations de base appliquées au démarrage, toujours précédées d'une sauvegarde.
 - **Sauvegardes** : `pg_dump` planifié chaque nuit et avant chaque mise à jour, copie sur

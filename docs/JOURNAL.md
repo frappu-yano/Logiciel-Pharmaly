@@ -13,7 +13,13 @@
 - Consigne reçue : `pharmaly-app` n'a rien à voir avec ce projet, ne pas y toucher. Copie
   locale de lecture supprimée de l'environnement.
 
-**En attente** : accord sur l'architecture (P1 à P8) et réponses à O1 et O2.
+- Décisions de la direction : logiciel natif sans interface web ; communication sans
+  Internet. Architecture révisée : client natif Avalonia, serveur par réseau local.
+- .NET SDK 10.0.115 installé dans le conteneur. Essai jetable hors dépôt : fenêtre
+  Avalonia 12.1.6 compilée et ouverte sans écran (65 Mo), exécutable Windows autonome
+  produit (104 Mo), non lancé sous Windows.
+
+**En attente** : accord sur le client natif Avalonia (P2), réponses à O1 et O2.
 
 **Prochaine étape après accord** : lot 0 (installation du SDK .NET dans l'environnement,
 création de la solution, intégration continue Windows, archivage du prototype).
