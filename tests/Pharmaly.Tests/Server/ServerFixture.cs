@@ -1,6 +1,11 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using System.Net.Http.Json;
+using Dapper;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using Pharmaly.Contracts;
+using Pharmaly.Server.Access;
 
 namespace Pharmaly.Tests.Server;
 
@@ -20,7 +25,24 @@ public sealed class ServerFixture : IAsyncLifetime
 
     public string ConnectionString { get; private set; } = string.Empty;
 
+    /// <summary>Client sans aucun jeton.</summary>
     public HttpClient Client { get; private set; } = null!;
+
+    /// <summary>Client d'un poste connecté, avec l'administrateur identifié.</summary>
+    public HttpClient AdminClient { get; private set; } = null!;
+
+    public const string RegisterLogin = "caisse1";
+    public const int AdminNumber = 1;
+
+    public string RegisterPassword { get; private set; } = string.Empty;
+
+    public string AdminSecret { get; private set; } = string.Empty;
+
+    public Guid AdminId { get; private set; }
+
+    public Guid StoreId { get; private set; }
+
+    public Guid OtherStoreId { get; private set; }
 
     public NpgsqlDataSource DataSource { get; private set; } = null!;
 
@@ -35,6 +57,39 @@ public sealed class ServerFixture : IAsyncLifetime
         factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             builder.UseSetting("ConnectionStrings:Pharmaly", ConnectionString));
         Client = factory.CreateClient();
+
+        var setup = Services.GetRequiredService<SiteSetup>();
+        StoreId = await setup.InitializeSiteAsync("D1", "Pharmaly 1 — Didouche", "MAGASIN");
+        OtherStoreId = await setup.InitializeSiteAsync("A2", "Pharmaly 2 — Audin", "MAGASIN");
+        RegisterPassword = await setup.CreateRegisterAccountAsync(RegisterLogin, "Caisse 1", "D1");
+        AdminSecret = await setup.CreateAdministratorAsync(AdminNumber, "Administratrice Test");
+        await using var connection = await DataSource.OpenConnectionAsync();
+        AdminId = await connection.ExecuteScalarAsync<Guid>(
+            "SELECT id FROM employees WHERE employee_number = @AdminNumber", new { AdminNumber });
+
+        AdminClient = await CreatePosteClientAsync();
+        await IdentifyAsync(AdminClient, AdminNumber, AdminSecret);
+    }
+
+    /// <summary>Nouveau poste connecté avec le compte de caisse, sans employé identifié.</summary>
+    public async Task<HttpClient> CreatePosteClientAsync()
+    {
+        var client = factory!.CreateClient();
+        var response = await client.PostAsJsonAsync(ApiRoutes.PosteSignIn, new PosteSignInRequest(RegisterLogin, RegisterPassword));
+        response.EnsureSuccessStatusCode();
+        var signedIn = (await response.Content.ReadFromJsonAsync<PosteSignInResponse>())!;
+        client.DefaultRequestHeaders.Add(ApiHeaders.PosteToken, signedIn.Token);
+        return client;
+    }
+
+    public static async Task<EmployeeSignInResponse> IdentifyAsync(HttpClient posteClient, int employeeNumber, string secret)
+    {
+        var response = await posteClient.PostAsJsonAsync(ApiRoutes.EmployeeSignIn, new EmployeeSignInRequest(employeeNumber, secret));
+        response.EnsureSuccessStatusCode();
+        var signedIn = (await response.Content.ReadFromJsonAsync<EmployeeSignInResponse>())!;
+        posteClient.DefaultRequestHeaders.Remove(ApiHeaders.EmployeeToken);
+        posteClient.DefaultRequestHeaders.Add(ApiHeaders.EmployeeToken, signedIn.Token);
+        return signedIn;
     }
 
     public async ValueTask DisposeAsync()

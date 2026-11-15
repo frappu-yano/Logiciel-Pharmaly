@@ -39,7 +39,7 @@ public sealed class ServerTests(ServerFixture server) : IClassFixture<ServerFixt
     }
 
     private async Task<List<ProductSummary>> SearchAsync(string term) =>
-        (await server.Client.GetFromJsonAsync<List<ProductSummary>>(
+        (await server.AdminClient.GetFromJsonAsync<List<ProductSummary>>(
             $"{ApiRoutes.ProductSearch}?q={Uri.EscapeDataString(term)}"))!;
 
     [Fact]
@@ -50,7 +50,7 @@ public sealed class ServerTests(ServerFixture server) : IClassFixture<ServerFixt
         Assert.NotNull(health);
         Assert.Equal("OK", health.Status);
         Assert.True(health.DatabaseReachable);
-        Assert.True(health.SchemaVersion >= 1);
+        Assert.True(health.SchemaVersion >= 2);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public sealed class ServerTests(ServerFixture server) : IClassFixture<ServerFixt
     {
         Assert.Empty(await SearchAsync("shampooing"));
 
-        var response = await server.Client.GetAsync($"{ApiRoutes.ProductByBarcode}/2000000000046");
+        var response = await server.AdminClient.GetAsync($"{ApiRoutes.ProductByBarcode}/2000000000046");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
@@ -115,7 +115,7 @@ public sealed class ServerTests(ServerFixture server) : IClassFixture<ServerFixt
     [Fact]
     public async Task Un_code_barres_exact_renvoie_le_produit_et_son_prix_exact()
     {
-        var product = await server.Client.GetFromJsonAsync<ProductSummary>($"{ApiRoutes.ProductByBarcode}/{SerumBarcode}");
+        var product = await server.AdminClient.GetFromJsonAsync<ProductSummary>($"{ApiRoutes.ProductByBarcode}/{SerumBarcode}");
 
         Assert.NotNull(product);
         Assert.Equal(4200.50m, product.SalePrice);
@@ -124,7 +124,7 @@ public sealed class ServerTests(ServerFixture server) : IClassFixture<ServerFixt
     [Fact]
     public async Task Un_code_barres_inconnu_renvoie_introuvable()
     {
-        var response = await server.Client.GetAsync($"{ApiRoutes.ProductByBarcode}/0000000000000");
+        var response = await server.AdminClient.GetAsync($"{ApiRoutes.ProductByBarcode}/0000000000000");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }

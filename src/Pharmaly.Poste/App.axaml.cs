@@ -17,8 +17,9 @@ public sealed class App : Application
         {
             var options = LaunchOptions.Parse(desktop.Args ?? []);
             var settings = PosteSettings.Load(options.ServerUrl);
-            var viewModel = new MainViewModel(new ServerClient(settings), MainViewModel.DefaultSearchDelay);
-            desktop.MainWindow = new MainWindow(viewModel, options);
+            var server = new ServerClient(settings, new PosteTokenStore());
+            var viewModel = new MainViewModel(server, MainViewModel.DefaultSearchDelay);
+            desktop.MainWindow = new MainWindow(viewModel, new SessionViewModel(server), options);
         }
 
         base.OnFrameworkInitializationCompleted();

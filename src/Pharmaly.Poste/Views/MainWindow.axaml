@@ -8,7 +8,8 @@
         Title="Pharmaly Gestion"
         Width="1180" Height="720" MinWidth="900" MinHeight="560"
         WindowStartupLocation="CenterScreen">
-  <DockPanel>
+  <Grid>
+  <DockPanel x:Name="WorkArea">
 
     <!-- Bandeau -->
     <Border DockPanel.Dock="Top" Background="{StaticResource InkBrush}" Padding="20,12">
@@ -20,6 +21,11 @@
           </Border>
           <TextBlock Text="Pharmaly Gestion" FontSize="18" FontWeight="SemiBold" Foreground="White"
                      VerticalAlignment="Center" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right"
+                    VerticalAlignment="Center" Margin="0,0,16,0">
+          <TextBlock x:Name="EmployeeLabel" Foreground="White" FontWeight="Medium" VerticalAlignment="Center" />
+          <Button x:Name="LockButton" Classes="quiet" Content="Verrouiller (F12)" Padding="12,6" MinHeight="34" />
         </StackPanel>
         <Border Grid.Column="2" Classes="status" Classes.connected="{Binding IsConnected}">
           <TextBlock x:Name="StatusLabel" Text="{Binding StatusText}" FontSize="13" FontWeight="Medium"
@@ -133,4 +139,55 @@
       </Border>
     </Grid>
   </DockPanel>
+
+  <!-- Niveau 1 : compte de caisse du poste -->
+  <Border x:Name="PosteSignInPanel" x:DataType="vm:SessionViewModel" IsVisible="{Binding IsPosteSignIn}"
+          Background="{StaticResource BeigeBrush}">
+    <Border Classes="card" Width="420" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="14">
+        <TextBlock Text="Pharmaly Gestion" FontSize="24" FontWeight="Bold" />
+        <TextBlock Classes="label" TextWrapping="Wrap"
+                   Text="Connectez ce poste avec son compte de caisse. Cette étape n'est demandée qu'une fois par poste." />
+        <StackPanel Spacing="4">
+          <TextBlock Classes="label" Text="Compte de caisse" />
+          <TextBox x:Name="RegisterLoginBox" Text="{Binding RegisterLogin}" FontSize="17" Padding="12,10" />
+        </StackPanel>
+        <StackPanel Spacing="4">
+          <TextBlock Classes="label" Text="Mot de passe" />
+          <TextBox x:Name="RegisterPasswordBox" Text="{Binding RegisterPassword}" PasswordChar="●" FontSize="17"
+                   Padding="12,10" />
+        </StackPanel>
+        <TextBlock x:Name="PosteErrorLabel" Text="{Binding ErrorMessage}" Foreground="#9A2B12" TextWrapping="Wrap"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <Button Classes="primary" Content="Connecter le poste (Entrée)" Command="{Binding SignInPosteCommand}"
+                IsEnabled="{Binding !IsBusy}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      </StackPanel>
+    </Border>
+  </Border>
+
+  <!-- Niveau 2 : identification de l'employé -->
+  <Border x:Name="EmployeeSignInPanel" x:DataType="vm:SessionViewModel" IsVisible="{Binding IsEmployeeSignIn}"
+          Background="{StaticResource BeigeBrush}">
+    <Border Classes="card" Width="420" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="14">
+        <TextBlock Text="Identification" FontSize="24" FontWeight="Bold" />
+        <TextBlock Classes="label" Text="{Binding RegisterLabel}"
+                   IsVisible="{Binding RegisterLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <StackPanel Spacing="4">
+          <TextBlock Classes="label" Text="Matricule" />
+          <TextBox x:Name="EmployeeNumberBox" Text="{Binding EmployeeNumber}" FontSize="20" Padding="12,10" />
+        </StackPanel>
+        <StackPanel Spacing="4">
+          <TextBlock Classes="label" Text="Code personnel" />
+          <TextBox x:Name="EmployeeSecretBox" Text="{Binding EmployeeSecret}" PasswordChar="●" FontSize="20"
+                   Padding="12,10" />
+        </StackPanel>
+        <TextBlock x:Name="EmployeeErrorLabel" Text="{Binding ErrorMessage}" Foreground="#9A2B12" TextWrapping="Wrap"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <Button Classes="primary" Content="S'identifier (Entrée)" Command="{Binding SignInEmployeeCommand}"
+                IsEnabled="{Binding !IsBusy}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      </StackPanel>
+    </Border>
+  </Border>
+  </Grid>
 </Window>

@@ -151,10 +151,27 @@ public sealed partial class MainViewModel(IServerClient server, TimeSpan searchD
             SelectedResult = Results.FirstOrDefault();
             RefreshSearchSpeed();
         }
+        catch (ServerRefusedException refused)
+        {
+            HandleRefusal(refused);
+        }
         catch (HttpRequestException)
         {
             IsConnected = false;
             StatusText = "Serveur injoignable — vérifiez le réseau du magasin";
+        }
+    }
+
+    /// <summary>Levé quand le serveur ne reconnaît plus l'employé : le poste doit redemander l'identification.</summary>
+    public event EventHandler? IdentificationRequired;
+
+    private void HandleRefusal(ServerRefusedException refused)
+    {
+        Results.Clear();
+        Notice = refused.Message;
+        if (refused.Code is ApiErrorCodes.EmployeeNotIdentified or ApiErrorCodes.PosteNotSignedIn)
+        {
+            IdentificationRequired?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -189,6 +206,10 @@ public sealed partial class MainViewModel(IServerClient server, TimeSpan searchD
             {
                 Notice = $"Aucun produit trouvé pour « {term} ».";
             }
+        }
+        catch (ServerRefusedException refused)
+        {
+            HandleRefusal(refused);
         }
         catch (HttpRequestException)
         {

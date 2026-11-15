@@ -13,16 +13,30 @@ public sealed partial class MainWindow : Window
     private static readonly TimeSpan ServerCheckInterval = TimeSpan.FromSeconds(15);
 
     private readonly MainViewModel viewModel;
+    private readonly SessionViewModel session;
     private readonly LaunchOptions options;
     private readonly DispatcherTimer memoryTimer;
     private readonly DispatcherTimer serverTimer;
 
-    public MainWindow(MainViewModel viewModel, LaunchOptions options)
+    public MainWindow(MainViewModel viewModel, SessionViewModel session, LaunchOptions options)
     {
         this.viewModel = viewModel;
+        this.session = session;
         this.options = options;
         DataContext = viewModel;
         InitializeComponent();
+
+        PosteSignInPanel.DataContext = session;
+        EmployeeSignInPanel.DataContext = session;
+        LockButton.Click += async (_, _) => await session.LockAsync();
+        session.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(SessionViewModel.Stage))
+            {
+                ApplyStage();
+            }
+        };
+        viewModel.IdentificationRequired += (_, _) => session.RequireEmployee();
 
         memoryTimer = new DispatcherTimer(MemoryRefreshInterval, DispatcherPriority.Background, (_, _) => viewModel.RefreshMemory());
         serverTimer = new DispatcherTimer(ServerCheckInterval, DispatcherPriority.Background, async (_, _) => await viewModel.CheckServerAsync());
@@ -32,11 +46,35 @@ public sealed partial class MainWindow : Window
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
     }
 
+    /// <summary>Affiche l'écran qui correspond à l'étape d'identification et y place le curseur.</summary>
+    private void ApplyStage()
+    {
+        WorkArea.IsVisible = session.IsWork;
+        EmployeeLabel.Text = session.EmployeeName;
+        if (!session.IsWork)
+        {
+            // Rien de l'employé précédent ne reste à l'écran.
+            viewModel.Query = string.Empty;
+            viewModel.ClearLines();
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            var target = session.Stage switch
+            {
+                SessionStage.PosteSignIn => RegisterLoginBox,
+                SessionStage.EmployeeSignIn => EmployeeNumberBox,
+                _ => SearchBox,
+            };
+            target.Focus();
+        });
+    }
+
     protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         viewModel.StartupSeconds = Measurements.ReadTimeSinceProcessStart().TotalSeconds;
-        SearchBox.Focus();
+        ApplyStage();
         viewModel.RefreshMemory();
         memoryTimer.Start();
         serverTimer.Start();
@@ -57,6 +95,22 @@ public sealed partial class MainWindow : Window
 
     private async Task RunAutoBenchmarkAsync()
     {
+        // Essai automatique : les identifiants du compte d'essai viennent de l'environnement.
+        string Read(string name) => Environment.GetEnvironmentVariable($"PHARMALY_ESSAI_{name}") ?? string.Empty;
+        if (session.IsPosteSignIn)
+        {
+            session.RegisterLogin = Read("COMPTE");
+            session.RegisterPassword = Read("MOT_DE_PASSE");
+            await session.SignInPosteAsync();
+        }
+
+        if (session.IsEmployeeSignIn)
+        {
+            session.EmployeeNumber = Read("MATRICULE");
+            session.EmployeeSecret = Read("CODE");
+            await session.SignInEmployeeAsync();
+        }
+
         var report = await viewModel.ExecuteBenchmarkAsync();
         if (options.ReportPath is not null)
         {
@@ -66,10 +120,54 @@ public sealed partial class MainWindow : Window
         Close();
     }
 
+    private async Task HandleSignInKeyAsync(KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || session.IsBusy)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        if (session.IsPosteSignIn)
+        {
+            if (RegisterLoginBox.IsFocused)
+            {
+                RegisterPasswordBox.Focus();
+            }
+            else
+            {
+                await session.SignInPosteAsync();
+            }
+        }
+        else if (EmployeeNumberBox.IsFocused)
+        {
+            EmployeeSecretBox.Focus();
+        }
+        else
+        {
+            await session.SignInEmployeeAsync();
+            if (session.IsEmployeeSignIn)
+            {
+                EmployeeNumberBox.Focus();
+            }
+        }
+    }
+
     private async void OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {
+        if (!session.IsWork)
+        {
+            await HandleSignInKeyAsync(e);
+            return;
+        }
+
         switch (e.Key)
         {
+            case Key.F12:
+                e.Handled = true;
+                await session.LockAsync();
+                break;
+
             case Key.Enter when SearchBox.IsFocused:
                 e.Handled = true;
                 if (viewModel.Results.Count > 1 && viewModel.SelectedResult is not null && !LooksLikeBarcode(viewModel.Query))

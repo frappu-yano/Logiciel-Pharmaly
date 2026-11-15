@@ -75,10 +75,20 @@ jobs:
           Push-Location publish/serveur
           & .\Pharmaly.Server.exe --donnees-fictives 20000
           if ($LASTEXITCODE -ne 0) { throw "Chargement des données fictives en échec" }
+          & .\Pharmaly.Server.exe --initialiser-site D1 "Site d essai" MAGASIN
+          $account = (& .\Pharmaly.Server.exe --creer-compte-caisse caisse1 "Caisse 1" D1 | Select-String "^SECRET=").ToString().Substring(7)
+          $code = (& .\Pharmaly.Server.exe --creer-administrateur 1 "Responsable Essai" | Select-String "^SECRET=").ToString().Substring(7)
+          if (-not $account -or -not $code) { throw "Mise en place du site en échec" }
+          $env:PHARMALY_ESSAI_COMPTE = "caisse1"
+          $env:PHARMALY_ESSAI_MOT_DE_PASSE = $account
+          $env:PHARMALY_ESSAI_MATRICULE = "1"
+          $env:PHARMALY_ESSAI_CODE = $code
           $server = Start-Process -FilePath .\Pharmaly.Server.exe -PassThru -RedirectStandardOutput serveur.log -RedirectStandardError serveur-erreurs.log
           Pop-Location
           Start-Sleep -Seconds 5
           Invoke-RestMethod http://127.0.0.1:5080/sante | ConvertTo-Json
+          try { Invoke-RestMethod "http://127.0.0.1:5080/produits/recherche?q=creme"; throw "Le serveur a répondu sans identification" }
+          catch { if ($_.Exception.Response.StatusCode.value__ -ne 401) { throw } else { "Sans identification : accès refusé (401), comme attendu" } }
 
           $report = Join-Path $PWD "publish\rapport-essai-windows.json"
           $poste = Start-Process -FilePath publish\poste\PharmalyGestion.exe -ArgumentList "--essai-auto", "--rapport", "`"$report`"" -PassThru

@@ -4,7 +4,7 @@ namespace Pharmaly.Tests.Poste;
 
 public sealed class MainViewModelTests
 {
-    private readonly FakeServer server = new();
+    private readonly FakeServer server = new() { HasPosteSession = true, EmployeeIdentified = true };
 
     private MainViewModel CreateViewModel() => new(server, TimeSpan.Zero);
 
@@ -103,6 +103,32 @@ public sealed class MainViewModelTests
 
         Assert.False(viewModel.IsConnected);
         Assert.Contains("injoignable", viewModel.StatusText);
+        Assert.Empty(viewModel.Lines);
+    }
+
+    [Fact]
+    public async Task Un_refus_du_serveur_s_affiche_et_n_ajoute_rien()
+    {
+        var viewModel = CreateViewModel();
+        server.DenyProducts = true;
+
+        await ScanAsync(viewModel, FakeServer.Creme.Barcode!);
+
+        Assert.Empty(viewModel.Lines);
+        Assert.Contains("pas le droit", viewModel.Notice);
+    }
+
+    [Fact]
+    public async Task Une_session_perdue_redemande_l_identification()
+    {
+        var viewModel = CreateViewModel();
+        var asked = false;
+        viewModel.IdentificationRequired += (_, _) => asked = true;
+        server.EmployeeIdentified = false;
+
+        await ScanAsync(viewModel, FakeServer.Creme.Barcode!);
+
+        Assert.True(asked);
         Assert.Empty(viewModel.Lines);
     }
 

@@ -70,6 +70,45 @@ Cette machine est bien plus puissante qu'un poste de magasin.
 
 **En attente de la direction** : choix du site pilote ; O2 (transfert simple) avant le lot 3.
 
+### Lot 1, première partie — accès (livré sur la branche de développement)
+
+Décision de la direction : le site pilote sera le magasin dont le poste est le plus
+faible et qui est le plus calme ; son nom sera donné au moment de l'installation.
+
+Fait :
+- Migration 0002 : employés, comptes de caisse, permissions individuelles (éventuellement
+  limitées à un site), modèles de rôles, sessions, journal d'audit en ajout seul.
+- Identification à deux niveaux : compte de caisse du poste, puis employé (matricule et
+  code personnel). Un seul employé à la fois par poste.
+- Contrôle de chaque demande par le serveur : les 21 permissions du cahier des charges,
+  retrait d'un droit effectif immédiatement.
+- Verrouillage après 5 échecs pendant 5 minutes ; même réponse pour un matricule inconnu
+  et un code faux ; secrets hachés (PBKDF2-SHA256), jetons stockés par empreinte.
+- Administration côté serveur : créer un employé, fixer ses droits, l'activer ou le
+  désactiver, réinitialiser son code. Nul ne modifie ses propres droits.
+- Journal d'audit : connexions, refus, verrouillages, changements de droits avec auteur
+  et détail (ajoutés, retirés). Ni modifiable, ni supprimable, ni vidable.
+- Poste : écrans de connexion du poste et d'identification, verrouillage par F12, nom de
+  l'employé affiché, connexion du poste mémorisée et chiffrée par Windows (DPAPI).
+- Mise en place d'un site par ligne de commande (site, compte de caisse, administrateur).
+
+Tests exécutés (Linux) : **67 réussis, 0 échec**, dont 21 tests d'accès sur une vraie base
+et un parcours complet au clavier dans la fenêtre. Parcours aussi rejoué sur le vrai
+programme, écran virtuel, serveur réel.
+
+Défaut d'ergonomie trouvé et corrigé : après un code refusé, le matricule restait dans
+le champ et une nouvelle saisie s'y ajoutait.
+
+Choix proposés, à confirmer par la direction :
+- identification par matricule court + code personnel (un badge à scanner pourra
+  s'ajouter sans changer le serveur) ;
+- verrouillage : 5 échecs, 5 minutes ; durée d'une session employé : 12 heures.
+
+Reste à faire dans le lot 1 :
+- écran d'administration des employés et des droits (cases à cocher) dans le poste ;
+- chiffrement des échanges poste-serveur ;
+- modèles de rôles (dépend de O10) ; verrouillage automatique après inactivité.
+
 ## 13/11/2026 — Prototype
 
 - Prototype Next.js + PostgreSQL (caisse, ventes, stock simple), testé dans un

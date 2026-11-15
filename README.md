@@ -4,9 +4,10 @@ Logiciel de gestion des points de vente Pharmaly : bons fournisseurs, ventes, ca
 Logiciel Windows natif, sans navigateur ; toute la communication passe par le réseau
 interne du site, jamais par Internet.
 
-**État : lot 0 (socle).** Le serveur, la base et le logiciel du poste démarrent et
-dialoguent ; un écran d'essai mesure la rapidité sur un catalogue fictif. Aucune vente
-réelle n'est encore enregistrée. Voir `docs/JOURNAL.md` pour l'avancement.
+**État : lot 1 en cours (accès).** Le serveur, la base et le logiciel du poste démarrent
+et dialoguent ; l'identification à deux niveaux et les permissions sont en place ; un
+écran d'essai mesure la rapidité sur un catalogue fictif. Aucune vente réelle n'est
+encore enregistrée. Voir `docs/JOURNAL.md` pour l'avancement.
 
 ## Organisation
 
@@ -58,8 +59,25 @@ Sur un poste d'essai :
 
 Options du poste : `--serveur http://adresse:5080`, `--essai-auto`, `--rapport fichier.json`.
 
+## Mise en place d'un site
+
+À faire une fois, sur le serveur, par la personne qui l'installe. Chaque secret généré
+s'affiche une seule fois, sur une ligne `SECRET=...` : notez-le aussitôt.
+
+```
+Pharmaly.Server.exe --initialiser-site D1 "Pharmaly 1 — Didouche" MAGASIN
+Pharmaly.Server.exe --creer-compte-caisse caisse1 "Caisse 1" D1
+Pharmaly.Server.exe --creer-administrateur 1 "Nom du responsable"
+```
+
+- Le **compte de caisse** (identifiant et mot de passe) connecte un poste, une seule fois.
+- Chaque **employé** s'identifie ensuite avec son matricule et son code personnel.
+- La touche **F12** verrouille le poste : l'employé suivant doit s'identifier.
+- Cinq codes faux de suite bloquent le compte pendant cinq minutes.
+
 ## Limites actuelles
 
-- Aucune identification : le serveur de ce lot ne doit tourner que sur un réseau d'essai,
-  avec des données fictives. Les comptes et les permissions arrivent au lot 1.
-- Les échanges poste-serveur ne sont pas encore chiffrés.
+- Les échanges poste-serveur ne sont pas encore chiffrés : à n'utiliser que sur un réseau
+  d'essai, avec des données fictives.
+- La gestion des employés et de leurs droits existe côté serveur, mais l'écran
+  d'administration n'est pas encore dans le logiciel du poste.
