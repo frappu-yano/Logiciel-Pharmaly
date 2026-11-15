@@ -5,6 +5,7 @@ using Pharmaly.Domain;
 using Pharmaly.Server.Access;
 using Pharmaly.Server.Catalog;
 using Pharmaly.Server.Database;
+using Pharmaly.Server.Maintenance;
 
 const string DemoDataArgument = "--donnees-fictives";
 const string MigrateOnlyArgument = "--migrer";
@@ -35,6 +36,7 @@ builder.Services.AddSingleton<ProductQueries>();
 builder.Services.AddSingleton<DemoDataSeeder>();
 builder.Services.AddSingleton<AccessService>();
 builder.Services.AddSingleton<SiteSetup>();
+builder.Services.AddSingleton<BackupService>();
 
 var app = builder.Build();
 
@@ -51,6 +53,24 @@ if (demoIndex >= 0)
     var count = demoIndex + 1 < args.Length && int.TryParse(args[demoIndex + 1], out var parsed) ? parsed : 20_000;
     await app.Services.GetRequiredService<DemoDataSeeder>().SeedAsync(count);
     app.Logger.LogInformation("{Count} produits fictifs chargés.", count);
+    return;
+}
+
+// Sauvegarde et restauration.
+//   --sauvegarder DOSSIER              crée une sauvegarde vérifiée, garde les 30 plus récentes
+//   --restaurer FICHIER BASE_NEUVE     restaure dans une base neuve (jamais dans la base en service)
+var backupDirectoryIndex = Array.IndexOf(args, "--sauvegarder");
+if (backupDirectoryIndex >= 0 && backupDirectoryIndex + 1 < args.Length)
+{
+    Console.WriteLine(await app.Services.GetRequiredService<BackupService>().BackupAsync(args[backupDirectoryIndex + 1]));
+    return;
+}
+
+var restoreIndex = Array.IndexOf(args, "--restaurer");
+if (restoreIndex >= 0 && restoreIndex + 2 < args.Length)
+{
+    await app.Services.GetRequiredService<BackupService>().RestoreAsync(args[restoreIndex + 1], args[restoreIndex + 2]);
+    Console.WriteLine($"Sauvegarde restaurée dans la base « {args[restoreIndex + 2]} ».");
     return;
 }
 

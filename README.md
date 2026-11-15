@@ -75,6 +75,24 @@ Pharmaly.Server.exe --creer-administrateur 1 "Nom du responsable"
 - La touche **F12** verrouille le poste : l'employé suivant doit s'identifier.
 - Cinq codes faux de suite bloquent le compte pendant cinq minutes.
 
+## Sauvegarde et restauration
+
+```
+Pharmaly.Server.exe --sauvegarder D:\Sauvegardes\Pharmaly
+Pharmaly.Server.exe --restaurer D:\Sauvegardes\Pharmaly\pharmaly-20261116-230000.dump pharmaly_verification
+```
+
+- Chaque sauvegarde est relue avant d'être conservée ; les 30 plus récentes sont gardées.
+- Une restauration se fait toujours dans une base **neuve** : la base en service n'est
+  jamais écrasée. Pour remettre un site en route, restaurer puis pointer
+  `appsettings.Local.json` vers la base restaurée.
+- Sauvegarde automatique chaque nuit, à créer une fois sur le serveur (invite de commandes
+  en administrateur) :
+  `schtasks /Create /TN "Pharmaly sauvegarde" /SC DAILY /ST 23:30 /RU SYSTEM /TR "C:\Pharmaly\Pharmaly.Server.exe --sauvegarder D:\Sauvegardes\Pharmaly"`
+- Copier régulièrement le dossier de sauvegardes sur un support qui quitte le magasin.
+- Si `pg_dump` n'est pas trouvé, indiquer son dossier dans `appsettings.Local.json` :
+  `"Postgres": { "BinDirectory": "C:\\Program Files\\PostgreSQL\\17\\bin" }`.
+
 ## Limites actuelles
 
 - Les échanges poste-serveur ne sont pas encore chiffrés : à n'utiliser que sur un réseau
