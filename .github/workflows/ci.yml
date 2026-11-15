@@ -78,7 +78,7 @@ jobs:
           $server = Start-Process -FilePath .\Pharmaly.Server.exe -PassThru -RedirectStandardOutput serveur.log -RedirectStandardError serveur-erreurs.log
           Pop-Location
           Start-Sleep -Seconds 5
-          Invoke-RestMethod http://localhost:5080/sante | ConvertTo-Json
+          Invoke-RestMethod http://127.0.0.1:5080/sante | ConvertTo-Json
 
           $report = Join-Path $PWD "publish\rapport-essai-windows.json"
           $poste = Start-Process -FilePath publish\poste\PharmalyGestion.exe -ArgumentList "--essai-auto", "--rapport", "`"$report`"" -PassThru

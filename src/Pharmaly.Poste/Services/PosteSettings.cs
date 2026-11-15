@@ -7,7 +7,9 @@ public sealed record PosteSettings(Uri ServerUrl)
 {
     private const string FileName = "poste.json";
     private const string LocalFileName = "poste.local.json";
-    private const string DefaultServerUrl = "http://localhost:5080";
+    // Adresse numérique et non « localhost » : sous Windows, « localhost » essaie d'abord
+    // l'IPv6 et peut faire perdre deux secondes à chaque connexion.
+    private const string DefaultServerUrl = "http://127.0.0.1:5080";
 
     public static PosteSettings Load(string? serverUrlOverride = null)
     {
