@@ -10,6 +10,9 @@
 - Rédigé `ARCHITECTURE.md`, `DECISIONS.md`, `PLAN.md`.
 - Aucun code Pharmaly Gestion écrit. Aucun test exécuté pour cette version.
 
+- Consigne reçue : `pharmaly-app` n'a rien à voir avec ce projet, ne pas y toucher. Copie
+  locale de lecture supprimée de l'environnement.
+
 **En attente** : accord sur l'architecture (P1 à P8) et réponses à O1 et O2.
 
 **Prochaine étape après accord** : lot 0 (installation du SDK .NET dans l'environnement,

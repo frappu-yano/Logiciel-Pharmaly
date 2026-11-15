@@ -28,6 +28,7 @@ Aucune règle métier ne passe en « validé » sans accord explicite.
 - Impayés sous Caisse > Impayés ; boutons Espèces et TPE ; raccourci `*` = Espèces.
 - Permissions individuelles par case à cocher, contrôlées par le serveur, modifications
   tracées ; nul ne peut s'accorder des droits.
+- `pharmaly-app` est un projet distinct : ne pas y toucher, ne rien en reprendre.
 - Charte : turquoise #2ECAC8, orange pêche #F5A97A, beige clair, noir, Poppins.
 
 ## Proposé (technique, en attente d'accord)

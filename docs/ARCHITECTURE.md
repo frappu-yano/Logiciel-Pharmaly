@@ -31,8 +31,8 @@ postes et les essais d'imprimante se font sur vos machines, avec votre aide.
 | `pharmaly-app` (privé, actif) | Application interne en ligne (React, Supabase, Vercel) : planning, pointage, RH, paie, colis, finance | Produit distinct, **à ne pas toucher**. Pas de stock ni de ventes |
 | `app-reserviti`, `site` | Non inspectés (sans rapport apparent) | — |
 
-Réutilisable depuis `pharmaly-app`, avec votre accord : la charte (`design-system/MASTER.md`)
-et les polices Poppins déjà hébergées localement. Aucun couplage technique prévu en V1.
+Décision du 15/11 : `pharmaly-app` est un projet sans rapport avec Pharmaly Gestion.
+Rien n'en est repris, aucun couplage, aucune modification.
 
 Aucun projet « Pharmaly Gestion » transactionnel n'existe. BML n'a été ni consulté ni
 approché ; aucun fichier ni export BML n'est présent dans l'environnement.
