@@ -39,6 +39,21 @@
   valide ; un lecteur de codes-barres est un clavier qui termine par Entrée.
 - Aucune animation. Couleurs et styles : ressources de `App.axaml`. Police Poppins.
 - Montants affichés avec `Money.ToDisplay`.
+- **Un module = un dossier** `Modules/<Nom>/` : la vue (`UserControl` qui implémente
+  `IModuleView`) et son modèle de vue (dérivé de `ModuleViewModel`). Les modules sont
+  déclarés dans `Modules/ModuleCatalog.cs` (titre, droits qui le rendent visible,
+  fabriques) ; leur position donne le raccourci (F1…, Ctrl+1…). La fenêtre principale
+  et `ShellViewModel` ne connaissent aucun module en particulier.
+- Un module est créé à sa première ouverture et détruit au verrouillage : ne rien garder
+  d'un employé ailleurs que dans le modèle de vue du module.
+- Appels au serveur : un client par module dans `Services/Server/` (interface + classe
+  construite sur `IServerTransport`), ajouté à `ServerClients`. Le transport
+  (`ServerTransport`) porte seul les jetons, les en-têtes et la lecture des refus ; un
+  refus arrive sous forme de `ServerRefusedException` (code stable + message français à
+  afficher tel quel). `ModuleViewModel.RunServerAsync` traite refus, panne de réseau et
+  session perdue.
+- Raccourcis propres à un module : `IModuleView.HandleKeyAsync`. F1 à F6, Ctrl+chiffre et
+  F12 sont réservés à la fenêtre.
 
 ## Tests (`tests/Pharmaly.Tests`)
 
@@ -47,7 +62,8 @@
 - Tests de concurrence obligatoires pour toute écriture de stock ou d'argent.
 - Après chaque scénario, vérifier l'invariant : somme des mouvements = solde.
 - Tests du poste : modèles de vue avec un faux serveur, et parcours clavier sans écran
-  (`Avalonia.Headless.XUnit`).
+  (`Avalonia.Headless.XUnit`). Le faux serveur (`FakeServer`) a un fichier par module,
+  comme les clients du poste.
 - Commande : `dotnet test -c Release`. `TreatWarningsAsErrors` est actif.
 - Ne jamais désactiver, ignorer ou affaiblir un test pour le faire passer.
 
