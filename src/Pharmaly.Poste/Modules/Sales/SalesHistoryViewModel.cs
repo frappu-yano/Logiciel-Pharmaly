@@ -151,8 +151,11 @@ public sealed class SaleDetailViewModel(SaleDetail sale, SalesRights rights)
     /// <summary>Une vente restée « en attente TPE » peut recevoir sa réponse ici (D23).</summary>
     public bool CanAnswerCard => rights.CanCollect && Sale.Status == SaleStatuses.CardPending;
 
-    /// <summary>« Retour sur ce ticket » : proposé pour une vente validée ; le serveur dit ce qui reste retournable.</summary>
-    public bool CanReturn => rights.CanReturn && Sale.Status == SaleStatuses.Completed;
+    /// <summary>
+    /// « Retour sur ce ticket » : proposé pour une vente validée qui n'est pas un impayé encore ouvert (D32) ;
+    /// le serveur dit ce qui reste retournable.
+    /// </summary>
+    public bool CanReturn => rights.CanReturn && Sale.Status == SaleStatuses.Completed && !Sale.IsUnpaid;
 }
 
 /// <summary>Étape affichée par-dessus l'historique.</summary>

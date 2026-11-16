@@ -93,7 +93,7 @@ public sealed partial class ReturnReasonsViewModel(IReturnsClient returns, Func<
 
     public string SelectedTitle => SelectedReason is { } row ? $"{row.Label} — {row.StateText}" : string.Empty;
 
-    public string ToggleStateLabel => SelectedReason is { IsActive: false } ? "Réactiver le motif" : "Désactiver le motif";
+    public string ToggleStateLabel => SelectedReason is { IsActive: false } ? "Réactiver" : "Désactiver";
 
     partial void OnSelectedReasonChanged(ReasonRowViewModel? value)
     {

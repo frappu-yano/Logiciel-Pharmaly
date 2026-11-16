@@ -64,7 +64,7 @@ public sealed class ReturnReasonsViewModelTests
         Assert.Equal(("Emballage abîmé", ReturnStockDestinations.SetAside), (request.Label, request.StockDestination));
         Assert.Equal(5, reasons.Reasons.Count);
         Assert.Equal("Emballage abîmé", reasons.SelectedReason!.Label);
-        Assert.Equal("Motif « Emballage abîmé » créé : mise à l'écart (emplacement « mis à l'écart »).", reasons.InfoMessage);
+        Assert.Equal("Motif « Emballage abîmé » créé : mise à l'écart.", reasons.InfoMessage);
         Assert.Equal(string.Empty, reasons.NewLabel);
 
         // Le serveur fait foi : un doublon est refusé avec son message.
@@ -132,7 +132,7 @@ public sealed class ReturnReasonsViewModelTests
         Assert.Equal((FakeServer.Damaged.Id, false), (id, request.IsActive));
         Assert.False(reasons.SelectedReason!.IsActive);
         Assert.Equal("Inactif", reasons.SelectedReason.StateText);
-        Assert.Equal("Réactiver le motif", reasons.ToggleStateLabel);
+        Assert.Equal("Réactiver", reasons.ToggleStateLabel);
         Assert.Equal("Motif « Produit endommagé » désactivé.", reasons.InfoMessage);
 
         // Réactiver ne demande pas de confirmation.

@@ -139,11 +139,14 @@ public sealed class ReturnsViewModelTests
         Assert.Equal(SalesScreen.History, module.Screen);
         Assert.Equal(sale.Id, module.History.Detail!.Sale.Id);
         Assert.True(module.History.CanCancelSelected);
+        Assert.False(module.History.CanReturnSelected);
         Assert.Empty(server.PreviewRequests);
         Assert.Empty(server.ReturnRequests);
 
         // Réglée : le ticket devient retournable, remboursé selon le règlement.
         server.SettleReceivable(sale.Id);
+        await module.History.LoadDetailAsync(sale.Id);
+        Assert.True(module.History.CanReturnSelected);
         await module.History.BeginReturnAsync();
         Assert.Equal(SalesScreen.Returns, module.Screen);
         Assert.Equal(ReturnStep.Choose, returns.Step);
@@ -317,13 +320,35 @@ public sealed class ReturnsViewModelTests
         Assert.True(returns.IsNotRestocked);
 
         returns.ChooseReasonNumber(3);
-        Assert.Equal("Mise à l'écart (emplacement « mis à l'écart »)", returns.DestinationText);
+        Assert.Equal("Mise à l'écart", returns.DestinationText);
         Assert.False(returns.IsNotRestocked);
 
         // Les destinations sont aussi écrites dans la liste des motifs.
         Assert.Equal(
-            ["Remise en stock vendable", "Pas de remise en stock", "Mise à l'écart (emplacement « mis à l'écart »)", "Remise en stock vendable"],
+            ["Remise en stock vendable", "Pas de remise en stock", "Mise à l'écart", "Remise en stock vendable"],
             returns.Reasons.Select(reason => reason.DestinationText));
+    }
+
+    [Fact]
+    public async Task Les_motifs_sont_relus_a_chaque_arrivee_sur_les_retours_mais_pas_pendant_un_retour_en_cours()
+    {
+        var sale = await SellAsync(SalePaymentModes.Cash);
+        var (module, returns) = await OpenReturnsAsync();
+        Assert.Equal(4, returns.Reasons.Count);
+
+        // Un administrateur désactive un motif : il disparaît à la prochaine arrivée sur l'écran.
+        server.ReturnReasons[1] = FakeServer.Damaged with { IsActive = false };
+        await module.CloseReturnsAsync();
+        await module.OpenReturnsAsync();
+        Assert.DoesNotContain(returns.Reasons, reason => reason.Reason.Id == FakeServer.Damaged.Id);
+
+        // Pendant un retour, le choix en cours n'est pas dérangé.
+        await ScanTicketAsync(returns, sale.TicketNumber);
+        returns.SelectedReason = Reason(returns, FakeServer.Defective);
+        server.ReturnReasons[1] = FakeServer.Damaged;
+        await module.ActivateAsync();
+        Assert.Equal(3, returns.Reasons.Count);
+        Assert.Equal(FakeServer.Defective.Id, returns.SelectedReason!.Reason.Id);
     }
 
     // ---------- Aperçu ----------
@@ -344,7 +369,7 @@ public sealed class ReturnsViewModelTests
         Assert.Equal("1 665,09 DA", returns.PreviewRefundText);
         Assert.Equal("En espèces — sortie de la caisse de ce poste", returns.PreviewMethodText);
         Assert.True(returns.IsPreviewCash);
-        Assert.Equal("Mise à l'écart (emplacement « mis à l'écart »)", returns.PreviewDestinationText);
+        Assert.Equal("Mise à l'écart", returns.PreviewDestinationText);
         Assert.Equal(["Crème hydratante 50 ml — 1 rendu — 1 665,09 DA"], returns.PreviewLines);
         var request = Assert.Single(server.PreviewRequests);
         Assert.Equal((sale.Id, FakeServer.Defective.Id), (request.SaleId, request.ReasonId));

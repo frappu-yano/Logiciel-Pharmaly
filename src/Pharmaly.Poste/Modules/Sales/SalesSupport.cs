@@ -226,7 +226,7 @@ public static class SaleFormat
     public static string StockDestination(string destination) => destination switch
     {
         ReturnStockDestinations.Sellable => "Remise en stock vendable",
-        ReturnStockDestinations.SetAside => "Mise à l'écart (emplacement « mis à l'écart »)",
+        ReturnStockDestinations.SetAside => "Mise à l'écart",
         ReturnStockDestinations.None => "Pas de remise en stock",
         _ => destination,
     };
@@ -235,7 +235,7 @@ public static class SaleFormat
     public static string StockDestinationHint(string destination) => destination switch
     {
         ReturnStockDestinations.Sellable => "La marchandise rendue retourne dans le stock vendable du magasin.",
-        ReturnStockDestinations.SetAside => "La marchandise rendue est rangée à part : elle ne peut pas être revendue.",
+        ReturnStockDestinations.SetAside => "La marchandise rendue va dans l'emplacement « mis à l'écart » : elle ne peut pas être revendue.",
         ReturnStockDestinations.None => "La marchandise rendue sort du circuit : aucun stock n'est réintégré.",
         _ => string.Empty,
     };

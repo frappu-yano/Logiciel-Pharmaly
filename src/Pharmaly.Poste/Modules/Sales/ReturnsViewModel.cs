@@ -86,7 +86,8 @@ public sealed partial class ReturnsViewModel : ObservableObject
     public Func<string, Task>? OpenSaleInHistory { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsSearch), nameof(IsChoosing), nameof(IsStepOpen))]
+    [NotifyPropertyChangedFor(nameof(IsSearch), nameof(IsChoosing), nameof(IsStepOpen), nameof(IsLinesZone), nameof(IsReasonZone),
+        nameof(IsNoteZone))]
     private ReturnStep step;
 
     public bool IsSearch => Step == ReturnStep.Search;
@@ -97,7 +98,15 @@ public sealed partial class ReturnsViewModel : ObservableObject
     public bool IsStepOpen => Step is ReturnStep.Confirm or ReturnStep.Unconfirmed or ReturnStep.Done;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLinesZone), nameof(IsReasonZone), nameof(IsNoteZone))]
     private ReturnField field;
+
+    /// <summary>Zone active, mise en évidence pendant le choix seulement.</summary>
+    public bool IsLinesZone => IsChoosing && Field == ReturnField.Lines;
+
+    public bool IsReasonZone => IsChoosing && Field == ReturnField.Reason;
+
+    public bool IsNoteZone => IsChoosing && Field == ReturnField.Note;
 
     /// <summary>Vrai quand l'historique des retours est affiché à la place de la saisie.</summary>
     [ObservableProperty]
@@ -276,10 +285,13 @@ public sealed partial class ReturnsViewModel : ObservableObject
 
     // ---------- Arrivée sur l'écran ----------
 
-    /// <summary>À chaque arrivée : les motifs actifs sont lus (une fois) ; un retour en cours n'est pas dérangé.</summary>
+    /// <summary>
+    /// À chaque arrivée : les motifs actifs sont relus (un administrateur a pu en changer), sauf
+    /// pendant un retour en cours, qui n'est pas dérangé.
+    /// </summary>
     public async Task ActivateAsync()
     {
-        if (!reasonsLoaded)
+        if (!reasonsLoaded || Step == ReturnStep.Search)
         {
             await LoadReasonsAsync();
         }
