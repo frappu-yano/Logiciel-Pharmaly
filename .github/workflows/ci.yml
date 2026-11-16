@@ -16,20 +16,19 @@ jobs:
   linux:
     name: Tests (Linux)
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: pharmaly
-          POSTGRES_PASSWORD: pharmaly
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U pharmaly" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      # Le PostgreSQL de la machine est utilisé pour que le serveur et les outils de
+      # sauvegarde (pg_dump, pg_restore) soient de la même version, comme sur un site.
+      - name: Démarrer PostgreSQL
+        run: |
+          sudo systemctl start postgresql
+          sudo -u postgres psql -c "CREATE ROLE pharmaly LOGIN PASSWORD 'pharmaly' CREATEDB"
+          sudo -u postgres psql -c "SELECT version()"
+          pg_dump --version
       - run: dotnet test -c Release
         env:
           PHARMALY_TEST_POSTGRES: Host=localhost;Username=pharmaly;Password=pharmaly;Database=postgres

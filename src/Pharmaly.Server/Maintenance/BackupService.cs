@@ -19,6 +19,7 @@ public sealed class BackupService(NpgsqlDataSource dataSource, IConfiguration co
         Directory.CreateDirectory(directory);
         var connection = new NpgsqlConnectionStringBuilder(dataSource.ConnectionString);
         var password = ReadPassword();
+        await EnsureToolsMatchServerAsync(password);
         var finalPath = Path.Combine(directory, $"{FilePrefix}{DateTime.Now:yyyyMMdd-HHmmss}{FileExtension}");
         var temporaryPath = finalPath + ".encours";
 
@@ -72,6 +73,29 @@ public sealed class BackupService(NpgsqlDataSource dataSource, IConfiguration co
         logger.LogInformation("Sauvegarde restaurée dans la base {Database}", targetDatabase);
     }
 
+    /// <summary>
+    /// pg_dump doit être de la même version majeure que le serveur : une sauvegarde faite par
+    /// un outil plus récent peut être impossible à restaurer sur ce serveur.
+    /// </summary>
+    private async Task EnsureToolsMatchServerAsync(string password)
+    {
+        int serverMajor;
+        await using (var connection = await dataSource.OpenConnectionAsync())
+        {
+            await using var command = new NpgsqlCommand("SELECT current_setting('server_version_num')::int / 10000", connection);
+            serverMajor = (int)(await command.ExecuteScalarAsync())!;
+        }
+
+        var versionText = await RunAsync("pg_dump", password, [], "--version");
+        var match = System.Text.RegularExpressions.Regex.Match(versionText, @"(\d+)(\.\d+)?\s*(\(|$)", System.Text.RegularExpressions.RegexOptions.Multiline);
+        if (!match.Success || int.Parse(match.Groups[1].Value) != serverMajor)
+        {
+            throw new InvalidOperationException(
+                $"L'outil pg_dump ({versionText.Trim()}) n'est pas de la même version que le serveur PostgreSQL ({serverMajor}). "
+                + "Indiquez le dossier des outils du serveur dans le réglage Postgres:BinDirectory.");
+        }
+    }
+
     private string ReadPassword() =>
         new NpgsqlConnectionStringBuilder(configuration.GetConnectionString("Pharmaly")
             ?? ReadLocalConnectionString()
@@ -92,7 +116,7 @@ public sealed class BackupService(NpgsqlDataSource dataSource, IConfiguration co
         "--no-password",
     ];
 
-    private async Task RunAsync(string tool, string password, string[] connectionArguments, params string[] arguments)
+    private async Task<string> RunAsync(string tool, string password, string[] connectionArguments, params string[] arguments)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -113,12 +137,14 @@ public sealed class BackupService(NpgsqlDataSource dataSource, IConfiguration co
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException($"Impossible de lancer {tool}.");
         var errors = process.StandardError.ReadToEndAsync();
-        _ = process.StandardOutput.ReadToEndAsync();
+        var output = process.StandardOutput.ReadToEndAsync();
         await process.WaitForExitAsync();
         if (process.ExitCode != 0)
         {
             throw new InvalidOperationException($"{tool} a échoué (code {process.ExitCode}) : {await errors}");
         }
+
+        return await output;
     }
 
     /// <summary>Cherche l'outil dans le dossier configuré, puis PGBIN, puis le PATH.</summary>
