@@ -38,9 +38,16 @@ JSON
 
 dotnet test                                                          # tous les tests
 dotnet run --project src/Pharmaly.Server -- --donnees-fictives 20000 # catalogue fictif, base vide uniquement
-dotnet run --project src/Pharmaly.Server                             # serveur sur le port 5080
+dotnet run --project src/Pharmaly.Server                             # serveur, HTTPS sur le port 5443
+dotnet run --project src/Pharmaly.Server -- --empreinte              # empreinte de son certificat
 dotnet run --project src/Pharmaly.Poste                              # logiciel du poste
 ```
+
+Le serveur n'écoute qu'en HTTPS, y compris en développement : à son premier lancement, le
+poste demande d'approuver l'empreinte du serveur (voir « Échanges chiffrés » plus bas).
+Pour un outil qui ne sait pas parler HTTPS, `"Transport": { "ClearHttpPort": 5080 }` dans
+`appsettings.Local.json` rétablit une écoute non chiffrée, limitée à `127.0.0.1` et
+signalée par un avertissement au démarrage. Ne jamais l'activer sur le serveur d'un magasin.
 
 ## Exécutables Windows
 
@@ -54,11 +61,17 @@ Sur un poste d'essai :
 2. Placer `Pharmaly.Server.exe` dans un dossier, avec un fichier `appsettings.Local.json`
    contenant la chaîne de connexion.
 3. Lancer une fois `Pharmaly.Server.exe --donnees-fictives 20000`, puis `Pharmaly.Server.exe`.
-4. Sur le poste, régler l'adresse du serveur dans `poste.json`, puis lancer
-   `PharmalyGestion.exe`. Dans le module **Diagnostic** (F6), la touche **F9** lance
-   l'essai de rapidité et affiche la mémoire utilisée et les temps de réponse.
+4. Sur le poste, régler l'adresse du serveur dans `poste.json`
+   (`https://adresse-du-serveur:5443`), puis lancer `PharmalyGestion.exe` et approuver
+   l'empreinte du serveur (voir « Échanges chiffrés »). Dans le module **Diagnostic** (F6),
+   la touche **F9** lance l'essai de rapidité et affiche la mémoire utilisée et les temps
+   de réponse.
 
-Options du poste : `--serveur http://adresse:5080`, `--essai-auto`, `--rapport fichier.json`.
+Options du poste : `--serveur https://adresse:5443`, `--oublier-serveur`, `--essai-auto`,
+`--rapport fichier.json`. L'essai automatique tourne sans personne devant l'écran : il lit
+l'empreinte attendue du serveur dans la variable d'environnement `PHARMALY_ESSAI_EMPREINTE`
+(valeur de la ligne `EMPREINTE=` de `Pharmaly.Server.exe --empreinte`) et refuse tout autre
+serveur. Cette variable n'est lue qu'avec `--essai-auto`.
 
 ## Mise en place d'un site
 
@@ -83,6 +96,76 @@ Pharmaly.Server.exe --creer-administrateur 1 "Nom du responsable"
   remplacer son code personnel.
 - Cinq codes faux de suite bloquent le compte pendant cinq minutes.
 
+## Échanges chiffrés entre les postes et le serveur
+
+Tout ce qui circule entre un poste et le serveur (mots de passe de caisse, codes
+personnels, jetons, données) est chiffré en HTTPS (TLS 1.2 ou 1.3). Rien à acheter ni à
+installer, et pas besoin d'Internet : le serveur fabrique lui-même son certificat, et
+chaque poste reconnaît **son** serveur à l'**empreinte** de ce certificat.
+
+**Sur le serveur**
+
+- Port d'écoute : **5443** (réglage `"Transport": { "HttpsPort": 5443 }`). À ouvrir dans le
+  pare-feu Windows du serveur ; l'ancien port 5080 n'est plus utilisé et peut être refermé.
+- Au premier démarrage, le serveur crée `certificat-serveur.pfx` à côté de
+  `Pharmaly.Server.exe`. Ce fichier contient sa clé : il est chiffré par Windows pour cette
+  machine et ne se copie pas sur une autre.
+- `Pharmaly.Server.exe --empreinte` affiche l'empreinte, par exemple :
+
+  ```
+  9F86 D081 884C 7D65 9A2F EAA0 C55A D015
+  A3BF 4F1B 2B0B 822C D15D 6C15 B0F0 0A08
+  ```
+
+  Notez-la ou gardez la fenêtre ouverte : elle sert à chaque poste. La commande peut être
+  lancée avant le premier démarrage du serveur, et autant de fois que nécessaire.
+
+**Première connexion d'un poste**
+
+1. Régler l'adresse dans `poste.json` : `{ "serverUrl": "https://192.168.1.10:5443" }`.
+2. Lancer `PharmalyGestion.exe`. Il affiche « Première connexion à ce serveur » et
+   l'empreinte qu'il a reçue. À ce stade, rien n'a été envoyé au serveur.
+3. Comparer les deux empreintes **caractère par caractère**. Si elles sont identiques,
+   appuyer sur **F8**. À la moindre différence, ne pas approuver : le poste ne parle pas
+   au bon serveur (mauvaise adresse, ou appareil qui s'interpose sur le réseau).
+4. Le poste demande ensuite son compte de caisse, comme avant.
+
+L'approbation se fait une fois par poste (et par utilisateur Windows du poste). Ensuite le
+poste refuse tout serveur qui présente une autre empreinte, avec le message « Le serveur
+n'est pas celui qui a été approuvé pour ce poste… ». Aucun bouton ne permet de passer outre.
+
+**Changement de serveur, ou réinstallation du serveur**
+
+Un serveur réinstallé, remplacé, ou dont le fichier `certificat-serveur.pfx` a été
+supprimé a une nouvelle empreinte : tous les postes le refusent tant qu'elle n'a pas été
+approuvée de nouveau. Sur chaque poste, une seule fois :
+
+```
+PharmalyGestion.exe --oublier-serveur
+```
+
+Le poste oublie l'ancien serveur et son compte de caisse, puis reprend à « Première
+connexion d'un poste » : comparer la nouvelle empreinte, F8, compte de caisse. Si un poste
+affiche ce refus alors que personne n'a touché au serveur, ne pas utiliser
+`--oublier-serveur` : vérifier d'abord l'adresse dans `poste.json` et l'empreinte du
+serveur, car c'est exactement ce que verrait un poste dont on détourne la connexion.
+
+Pour garder la même empreinte en changeant seulement de disque ou de dossier sur la **même**
+machine, déplacer `certificat-serveur.pfx` avec `Pharmaly.Server.exe`. La sauvegarde de la
+base ne contient pas ce fichier.
+
+**Ce que cela protège, et ce que cela ne protège pas**
+
+- Protège contre l'écoute du réseau du magasin (câble ou Wi-Fi) et contre un appareil qui
+  se ferait passer pour le serveur après l'approbation.
+- La sécurité de la première connexion repose sur la comparaison faite par
+  l'installateur : approuver sans comparer revient à faire confiance au réseau ce jour-là.
+- Ne protège pas d'une personne qui a la main sur le PC serveur lui-même (elle peut lire
+  la base, et utiliser le certificat), ni d'un poste déjà compromis.
+- Le certificat n'a pas de date de fin utile (30 ans) et n'est jamais renouvelé
+  automatiquement ; pour le renouveler, supprimer le fichier et approuver de nouveau.
+- Une adresse `http://` n'est acceptée par le poste que vers `127.0.0.1` (développement).
+
 ## Sauvegarde et restauration
 
 ```
@@ -103,7 +186,7 @@ Pharmaly.Server.exe --restaurer D:\Sauvegardes\Pharmaly\pharmaly-20261116-230000
 
 ## Limites actuelles
 
-- Les échanges poste-serveur ne sont pas encore chiffrés : à n'utiliser que sur un réseau
-  d'essai, avec des données fictives.
+- La liaison entre le serveur et PostgreSQL n'est pas concernée par le chiffrement des
+  échanges : PostgreSQL doit rester sur la même machine que le serveur.
 - Les modules Vente, Bons fournisseurs, Caisse et Produits affichent seulement « Module
   en cours de développement ».
