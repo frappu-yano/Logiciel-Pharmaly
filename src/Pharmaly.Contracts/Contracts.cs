@@ -14,13 +14,32 @@ public sealed record ProductSummary(
     decimal SalePrice,
     string? Barcode,
     // Stock vendable du site du poste (emplacements « VENDABLE » uniquement).
-    decimal SellableStock = 0);
+    decimal SellableStock = 0,
+    // Faux : le produit se vend au poids ou au volume, les quantités décimales sont permises.
+    bool SoldByUnit = true,
+    // Faux : produit désactivé, renvoyé seulement quand la recherche le demande (« inactifs=true »).
+    bool IsActive = true);
+
+/// <summary>Marque ou catégorie existante.</summary>
+public sealed record ReferenceName(Guid Id, string Name);
 
 public static class ApiRoutes
 {
     public const string Health = "/sante";
+    /// <summary>GET « ?q=…&amp;limite=…&amp;inactifs=true » : « inactifs » inclut les produits désactivés.</summary>
     public const string ProductSearch = "/produits/recherche";
+
+    /// <summary>GET « /produits/code-barres/{code}?inactifs=true ».</summary>
     public const string ProductByBarcode = "/produits/code-barres";
+
+    /// <summary>Paramètre facultatif des deux routes ci-dessus : inclure les produits désactivés.</summary>
+    public const string IncludeInactiveParameter = "inactifs";
+
+    /// <summary>GET : marques existantes, par ordre alphabétique.</summary>
+    public const string ProductBrands = "/produits/marques";
+
+    /// <summary>GET : catégories existantes, par ordre alphabétique.</summary>
+    public const string ProductCategories = "/produits/categories";
     public const string PosteSignIn = "/acces/poste";
     public const string EmployeeSignIn = "/acces/employe";
     public const string EmployeeSignOut = "/acces/employe/fin";
@@ -75,9 +94,24 @@ public sealed record PosteSignInResponse(string Token, string RegisterName, stri
 
 public sealed record EmployeeSignInRequest(int EmployeeNumber, string Secret);
 
-public sealed record EmployeeSignInResponse(string Token, Guid EmployeeId, string EmployeeName, IReadOnlyList<string> Permissions);
+/// <summary>StoreId : site du poste. SellableLocationId : son emplacement vendable par défaut (absent si le site n'en a pas).</summary>
+public sealed record EmployeeSignInResponse(
+    string Token,
+    Guid EmployeeId,
+    string EmployeeName,
+    IReadOnlyList<string> Permissions,
+    Guid StoreId = default,
+    Guid? SellableLocationId = null);
 
-public sealed record CurrentIdentityResponse(string RegisterName, string StoreName, Guid EmployeeId, string EmployeeName, IReadOnlyList<string> Permissions);
+/// <summary>StoreId : site du poste. SellableLocationId : son emplacement vendable par défaut (absent si le site n'en a pas).</summary>
+public sealed record CurrentIdentityResponse(
+    string RegisterName,
+    string StoreName,
+    Guid EmployeeId,
+    string EmployeeName,
+    IReadOnlyList<string> Permissions,
+    Guid StoreId = default,
+    Guid? SellableLocationId = null);
 
 public sealed record PermissionGrant(string Code, Guid? StoreId);
 

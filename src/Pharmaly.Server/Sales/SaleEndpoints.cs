@@ -4,6 +4,7 @@ using Pharmaly.Contracts;
 using Pharmaly.Domain;
 using Pharmaly.Server.Access;
 using Pharmaly.Server.Cash;
+using Pharmaly.Server.Closures;
 using Pharmaly.Server.Operations;
 using Pharmaly.Server.Stock;
 
@@ -389,15 +390,7 @@ public static class SaleEndpoints
 
     /// <summary>Emplacement vendable du site du poste : l'emplacement principal s'il existe.</summary>
     private static async Task<Guid> ReadSellableLocationAsync(OperationContext operation, Guid storeId) =>
-        await operation.Connection.ExecuteScalarAsync<Guid?>(
-            """
-            SELECT id FROM stock_locations
-            WHERE store_id = @storeId AND kind = @kind AND is_active
-            ORDER BY (code = @mainCode) DESC, code
-            LIMIT 1
-            """,
-            new { storeId, kind = StockLocationKinds.Sellable, mainCode = SiteSetup.MainLocationCode },
-            operation.Transaction)
+        await SiteLocations.ReadSellableAsync(operation.Connection, storeId, operation.Transaction)
         ?? throw BusinessException.Conflict("Ce site n'a aucun emplacement de stock vendable.");
 
     private static async Task<SaleDetail> ReadAsync(OperationContext operation, Guid saleId) =>
@@ -475,6 +468,9 @@ public static class SaleEndpoints
         {
             var reason = CashSessions.CleanReason(request.Reason, "de l'annulation");
             var storeId = operation.Identity.StoreId;
+            // Une vente impayée s'annule sans caisse ouverte : le verrou de la journée empêche
+            // qu'une clôture fige la journée pendant l'annulation. Pris avant tout autre verrou.
+            await BusinessDayLock.SharedAsync(operation, storeId);
 
             // Le mode de paiement est immuable : lu sans verrou pour savoir si un remboursement
             // sortira de la caisse de ce poste (session à verrouiller en premier).
@@ -503,6 +499,17 @@ public static class SaleEndpoints
                 throw new BusinessException(
                     SaleErrorCodes.DayClosed,
                     "La journée de cette vente est clôturée : elle ne peut plus être annulée. Passez par un retour.",
+                    StatusCodes.Status409Conflict);
+            }
+
+            // Un retour a déjà rendu de la marchandise et de l'argent : annuler la vente entière
+            // les compterait deux fois. Le reste se traite par d'autres retours.
+            if (await operation.Connection.ExecuteScalarAsync<bool>(
+                    "SELECT EXISTS (SELECT 1 FROM returns WHERE sale_id = @id)", new { id }, operation.Transaction))
+            {
+                throw new BusinessException(
+                    ReturnErrorCodes.SaleHasReturns,
+                    $"Le ticket {sale.TicketNumber} a déjà fait l'objet d'un retour : il ne peut plus être annulé. Passez par un retour.",
                     StatusCodes.Status409Conflict);
             }
 

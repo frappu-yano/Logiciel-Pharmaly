@@ -24,10 +24,13 @@ public sealed class ProductQueries(NpgsqlDataSource dataSource)
         COALESCE((SELECT sum(sl.quantity) FROM stock_levels sl
                   JOIN stock_locations l ON l.id = sl.location_id
                   WHERE sl.product_id = p.id AND l.store_id = @storeId
-                    AND l.kind = '{StockLocationKinds.Sellable}'), 0) AS SellableStock
+                    AND l.kind = '{StockLocationKinds.Sellable}'), 0) AS SellableStock,
+        p.sold_by_unit AS SoldByUnit, p.is_active AS IsActive
         """;
 
-    public async Task<IReadOnlyList<ProductSummary>> SearchAsync(string? term, int limit, Guid storeId, CancellationToken cancellationToken)
+    /// <param name="includeInactive">Vrai : les produits désactivés sont aussi renvoyés (pour les réactiver ou vider leur stock).</param>
+    public async Task<IReadOnlyList<ProductSummary>> SearchAsync(
+        string? term, int limit, Guid storeId, CancellationToken cancellationToken, bool includeInactive = false)
     {
         var cleaned = (term ?? string.Empty).Trim();
         if (cleaned.Length == 0)
@@ -56,7 +59,7 @@ public sealed class ProductQueries(NpgsqlDataSource dataSource)
                  SELECT {SummaryColumns}
                  FROM products p
                  JOIN matches ON matches.id = p.id
-                 WHERE p.is_active
+                 WHERE (p.is_active OR @includeInactive)
                  ORDER BY p.name
                  LIMIT @limit
                  """,
@@ -66,6 +69,7 @@ public sealed class ProductQueries(NpgsqlDataSource dataSource)
                     prefix = EscapeLike(cleaned) + "%",
                     limit = boundedLimit,
                     storeId,
+                    includeInactive,
                 },
                 cancellationToken: cancellationToken));
             return byCode.AsList();
@@ -78,16 +82,17 @@ public sealed class ProductQueries(NpgsqlDataSource dataSource)
             $"""
              SELECT {SummaryColumns}
              FROM products p
-             WHERE p.is_active AND p.search_name LIKE ALL (@patterns)
+             WHERE (p.is_active OR @includeInactive) AND p.search_name LIKE ALL (@patterns)
              ORDER BY (p.search_name LIKE @startsWith) DESC, p.name
              LIMIT @limit
              """,
-            new { patterns, startsWith = EscapeLike(words[0]) + "%", limit = boundedLimit, storeId },
+            new { patterns, startsWith = EscapeLike(words[0]) + "%", limit = boundedLimit, storeId, includeInactive },
             cancellationToken: cancellationToken));
         return byName.AsList();
     }
 
-    public async Task<ProductSummary?> FindByBarcodeAsync(string barcode, Guid storeId, CancellationToken cancellationToken)
+    public async Task<ProductSummary?> FindByBarcodeAsync(
+        string barcode, Guid storeId, CancellationToken cancellationToken, bool includeInactive = false)
     {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<ProductSummary>(new CommandDefinition(
@@ -95,10 +100,19 @@ public sealed class ProductQueries(NpgsqlDataSource dataSource)
              SELECT {SummaryColumns}
              FROM products p
              JOIN product_barcodes scanned ON scanned.product_id = p.id
-             WHERE scanned.barcode = @barcode AND p.is_active
+             WHERE scanned.barcode = @barcode AND (p.is_active OR @includeInactive)
              """,
-            new { barcode = barcode.Trim(), storeId },
+            new { barcode = barcode.Trim(), storeId, includeInactive },
             cancellationToken: cancellationToken));
+    }
+
+    /// <summary>Marques (« brands ») ou catégories (« categories ») existantes, par ordre alphabétique.</summary>
+    public async Task<IReadOnlyList<ReferenceName>> ListReferencesAsync(bool brands, CancellationToken cancellationToken)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        return (await connection.QueryAsync<ReferenceName>(new CommandDefinition(
+            $"SELECT id AS Id, name AS Name FROM {(brands ? "brands" : "categories")} ORDER BY lower(name), name",
+            cancellationToken: cancellationToken))).AsList();
     }
 
     /// <summary>Résumé d'un produit, actif ou non, lu dans la transaction de la commande en cours.</summary>

@@ -23,17 +23,25 @@ public static partial class ProductEndpoints
     public static void MapProductEndpoints(this WebApplication app)
     {
         app.MapGet(ApiRoutes.ProductSearch, async (
-            string? q, int? limite, HttpContext context, ProductQueries queries, CancellationToken cancellationToken) =>
+            string? q, int? limite, bool? inactifs, HttpContext context, ProductQueries queries, CancellationToken cancellationToken) =>
             Results.Ok(await queries.SearchAsync(
-                q, limite ?? ProductQueries.DefaultLimit, context.GetIdentity().StoreId, cancellationToken)))
+                q, limite ?? ProductQueries.DefaultLimit, context.GetIdentity().StoreId, cancellationToken, inactifs ?? false)))
             .RequirePermission(Permissions.ProductsView);
 
         app.MapGet(ApiRoutes.ProductByBarcode + "/{barcode}", async (
-            string barcode, HttpContext context, ProductQueries queries, CancellationToken cancellationToken) =>
-            await queries.FindByBarcodeAsync(barcode, context.GetIdentity().StoreId, cancellationToken) is { } product
+            string barcode, bool? inactifs, HttpContext context, ProductQueries queries, CancellationToken cancellationToken) =>
+            await queries.FindByBarcodeAsync(barcode, context.GetIdentity().StoreId, cancellationToken, inactifs ?? false) is { } product
                 ? Results.Ok(product)
                 : Results.NotFound())
             .RequirePermission(Permissions.ProductsView);
+
+        // Marques et catégories existantes : pour tout employé ayant un droit sur les produits.
+        app.MapGet(ApiRoutes.ProductBrands, (
+            HttpContext context, NpgsqlDataSource dataSource, ProductQueries queries, CancellationToken cancellationToken) =>
+            ListReferencesAsync(context, dataSource, queries, brands: true, cancellationToken)).RequireEmployee();
+        app.MapGet(ApiRoutes.ProductCategories, (
+            HttpContext context, NpgsqlDataSource dataSource, ProductQueries queries, CancellationToken cancellationToken) =>
+            ListReferencesAsync(context, dataSource, queries, brands: false, cancellationToken)).RequireEmployee();
 
         app.MapGet(ApiRoutes.Products + "/{id:guid}", async (Guid id, ProductQueries queries, CancellationToken cancellationToken) =>
             await queries.ReadDetailAsync(id, cancellationToken) is { } detail
@@ -46,6 +54,12 @@ public static partial class ProductEndpoints
         app.MapPut(ApiRoutes.Products + "/{id:guid}/" + ApiRoutes.ProductSalePriceSuffix, ChangeSalePriceAsync)
             .RequirePermission(Permissions.SalePriceEdit);
     }
+
+    private static async Task<IResult> ListReferencesAsync(
+        HttpContext context, NpgsqlDataSource dataSource, ProductQueries queries, bool brands, CancellationToken cancellationToken) =>
+        await PermissionGuard.RefuseWithoutAnyAsync(
+            dataSource, context, Permissions.ProductsView, Permissions.ProductsCreate, Permissions.ProductsEdit, Permissions.SalePriceEdit)
+        ?? Results.Ok(await queries.ListReferencesAsync(brands, cancellationToken));
 
     private static Task<IResult> CreateAsync(CreateProductRequest request, HttpContext context, OperationRunner runner) =>
         runner.RunAsync(request.OperationId, CreateOperation, context.GetIdentity(), request, async operation =>

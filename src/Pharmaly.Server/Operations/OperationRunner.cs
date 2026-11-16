@@ -82,7 +82,8 @@ public sealed class OperationRunner(NpgsqlDataSource dataSource)
                 {
                     return Failure(new BusinessException(
                         ApiErrorCodes.OperationMismatch,
-                        "Cet identifiant d'opération a déjà servi pour une autre demande. Rien n'a été enregistré.",
+                        "Cet identifiant d'opération a déjà servi pour une autre demande, qui reste enregistrée telle quelle. "
+                        + "La demande actuelle n'a pas été exécutée.",
                         StatusCodes.Status409Conflict));
                 }
 
@@ -106,5 +107,5 @@ public sealed class OperationRunner(NpgsqlDataSource dataSource)
     }
 
     private static IResult Failure(BusinessException exception) =>
-        Results.Json(exception.ToApiError(), statusCode: exception.StatusCode);
+        Results.Json(exception.ToErrorBody(), statusCode: exception.StatusCode);
 }
