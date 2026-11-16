@@ -385,6 +385,7 @@ public sealed partial class NoteEntryViewModel : ObservableObject
         searchCancellation?.Cancel();
         ErrorMessage = string.Empty;
         InfoMessage = string.Empty;
+        IsHistoryVisible = false;
         IsLookingUp = true;
         try
         {
@@ -524,7 +525,7 @@ public sealed partial class NoteEntryViewModel : ObservableObject
         Focus(EntryField.Quantity);
     }
 
-    private string DescribeStock(decimal quantity) => $"Stock {Note.LocationName} : {NoteInput.FormatQuantity(quantity)}";
+    private string DescribeStock(decimal quantity) => $"En stock ({Note.LocationName}) : {NoteInput.FormatQuantity(quantity)}";
 
     /// <summary>Le stock s'affiche dès qu'il arrive, sans retarder la saisie de la quantité.</summary>
     private async Task LoadStockAsync(Guid productId)

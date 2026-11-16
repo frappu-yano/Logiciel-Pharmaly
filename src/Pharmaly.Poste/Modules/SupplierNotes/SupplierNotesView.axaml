@@ -340,7 +340,7 @@
                         <TextBlock Grid.Column="3" Classes="num" Text="{Binding QuantityText}" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="4" Classes="num" Text="{Binding PriceText}" />
                         <TextBlock Grid.Column="5" Classes="num" Text="{Binding TotalText}" FontWeight="SemiBold" />
-                        <Border Grid.Column="6" HorizontalAlignment="Right" CornerRadius="6" Padding="6,1"
+                        <Border Grid.Column="6" HorizontalAlignment="Right" CornerRadius="6" Padding="6,1" Margin="0,0,-6,0"
                                 Classes.margindrop="{Binding MarginDropped}">
                           <TextBlock Classes="num" Text="{Binding MarginText}" FontSize="13" />
                         </Border>
@@ -410,7 +410,7 @@
                 <TextBlock x:Name="QuickErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
               </Border>
               <TextBlock Classes="label" TextWrapping="Wrap"
-                         Text="Entrée : prix de vente, puis créer · Tab : marque, catégorie · Échap : ne pas créer" />
+                         Text="Entrée : champ suivant, puis créer · Tab : marque et catégorie" />
               <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                 <Button Classes="quiet" Content="Ne pas créer (Échap)" Focusable="False" Click="OnQuickCancelClick"
                         HorizontalAlignment="Stretch" MinHeight="46" />

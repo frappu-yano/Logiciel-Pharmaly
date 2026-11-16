@@ -270,7 +270,7 @@ public sealed class SupplierNotesViewModelTests
         Assert.Equal(FakeServer.Creme.Name, entry.ProductTitle);
         Assert.Equal("1200,00", entry.PriceText);
         Assert.Equal("Vente 1 850,10 DA · Dernier achat 1 200,00 DA (Biocos Distribution, 12/10/2026)", entry.ProductDetails);
-        Assert.Equal("Stock Dépôt : 10", entry.StockText);
+        Assert.Equal("En stock (Dépôt) : 10", entry.StockText);
         Assert.Equal([EntryField.Quantity], focus);
 
         // 2. Quantité puis Entrée : curseur sur le prix d'achat. Rien n'est parti vers le serveur.
@@ -640,7 +640,7 @@ public sealed class SupplierNotesViewModelTests
         Assert.Equal(EntryField.Quantity, entry.ActiveField);
         Assert.Equal(string.Empty, entry.PriceText);
         Assert.Equal("Vente 450,00 DA · Jamais acheté", entry.ProductDetails);
-        Assert.Equal("Stock Dépôt : 0", entry.StockText);
+        Assert.Equal("En stock (Dépôt) : 0", entry.StockText);
         Assert.Contains("créé", entry.InfoMessage);
 
         // La saisie continue comme pour n'importe quel produit.

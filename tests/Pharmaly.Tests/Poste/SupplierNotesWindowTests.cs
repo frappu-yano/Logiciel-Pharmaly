@@ -120,7 +120,7 @@ public sealed class SupplierNotesWindowTests
         // Ligne 1 — scan : le produit s'affiche, prix d'achat proposé, curseur sur la quantité.
         await ScanAsync(window, FakeServer.Creme.Barcode!);
         Assert.Equal(FakeServer.Creme.Name, view.FindControl<TextBlock>("ProductLabel")!.Text);
-        Assert.Equal("Stock Dépôt : 10", view.FindControl<TextBlock>("StockLabel")!.Text);
+        Assert.Equal("En stock (Dépôt) : 10", view.FindControl<TextBlock>("StockLabel")!.Text);
         Assert.Equal("1200,00", priceBox.Text);
         Assert.True(quantityBox.IsFocused);
 
