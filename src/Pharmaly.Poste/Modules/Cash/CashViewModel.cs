@@ -7,8 +7,9 @@ namespace Pharmaly.Poste.Modules.Cash;
 
 /// <summary>
 /// Module Caisse : impayés (tableau, recherche, règlement intégral éventuellement groupé),
-/// session de caisse du poste (état, ouverture, résumé, entrées et sorties d'espèces) et
-/// emplacement de la clôture quotidienne, pas encore développée.
+/// session de caisse du poste (état, ouverture, résumé, entrées et sorties d'espèces, fermeture
+/// avec comptage des espèces) et clôture quotidienne du magasin (état de la journée, blocages,
+/// aperçu des totaux, clôture éventuellement forcée, historique et rapports figés).
 /// <para>
 /// Le poste ne décide de rien : le serveur contrôle les droits, les montants et les
 /// encaissements simultanés. Ce modèle de vue garantit seulement qu'un encaissement n'est
@@ -18,7 +19,6 @@ namespace Pharmaly.Poste.Modules.Cash;
 public sealed partial class CashViewModel : ModuleViewModel
 {
     public const string NoReceivablesViewRight = "Vos droits ne permettent pas de consulter les impayés.";
-    public const string ClosingNotAvailable = "La clôture quotidienne n'est pas encore disponible sur ce poste.";
 
     /// <summary>
     /// Code que le transport donne à une réponse du serveur qui n'est pas un refus lisible
@@ -29,18 +29,24 @@ public sealed partial class CashViewModel : ModuleViewModel
     private readonly IReceivablesClient receivables;
     private readonly ICustomersClient customers;
     private readonly ICashSessionClient cash;
+    private readonly IClosuresClient closures;
+    private readonly IClosureReportPrinter printer;
     private readonly Func<DateOnly> today;
 
     public CashViewModel(
         IReceivablesClient receivables,
         ICustomersClient customers,
         ICashSessionClient cash,
+        IClosuresClient closures,
         CashRights rights,
-        Func<DateOnly>? today = null)
+        Func<DateOnly>? today = null,
+        IClosureReportPrinter? printer = null)
     {
         this.receivables = receivables;
         this.customers = customers;
         this.cash = cash;
+        this.closures = closures;
+        this.printer = printer ?? new NoClosureReportPrinter();
         this.today = today ?? (() => DateOnly.FromDateTime(DateTime.Now));
         Rights = rights;
         selectedStatus = StatusChoices[0];
@@ -63,8 +69,8 @@ public sealed partial class CashViewModel : ModuleViewModel
 
     public bool IsClosingTab => Tab == CashTab.Closing;
 
-    /// <summary>Vrai tant qu'une étape (règlement, mouvement d'espèces, ouverture) est ouverte : on ne change pas d'onglet.</summary>
-    public bool IsAnyStepOpen => IsStepOpen || IsSessionStepOpen || IsConfirmingOpening;
+    /// <summary>Vrai tant qu'une étape (règlement, mouvement d'espèces, ouverture, fermeture, clôture) est ouverte : on ne change pas d'onglet.</summary>
+    public bool IsAnyStepOpen => IsStepOpen || IsSessionStepOpen || IsConfirmingOpening || IsClosingStepOpen;
 
     /// <summary>Information utile à l'employé (règlement refusé par le TPE, caisse ouverte…).</summary>
     [ObservableProperty]
@@ -124,6 +130,9 @@ public sealed partial class CashViewModel : ModuleViewModel
                 break;
             case CashTab.Session:
                 await RefreshSessionTabAsync();
+                break;
+            case CashTab.Closing:
+                await LoadClosingTabAsync();
                 break;
         }
     }

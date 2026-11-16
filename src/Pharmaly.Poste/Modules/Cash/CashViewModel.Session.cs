@@ -22,6 +22,21 @@ public enum SessionStep
 
     /// <summary>L'envoi du mouvement n'a pas reçu de réponse : on ne sait pas s'il est enregistré.</summary>
     MovementUnconfirmed,
+
+    /// <summary>Fermeture : saisie des espèces comptées dans le tiroir.</summary>
+    CloseCount,
+
+    /// <summary>Fermeture : confirmation du montant compté.</summary>
+    CloseConfirm,
+
+    /// <summary>La fermeture n'a pas reçu de réponse : on ne sait pas si la caisse est fermée.</summary>
+    CloseUnconfirmed,
+
+    /// <summary>Fermeture refusée : ce qui bloque, et comment le lever.</summary>
+    CloseBlocked,
+
+    /// <summary>Caisse fermée : rapport de la session (attendu, compté, écart).</summary>
+    CloseDone,
 }
 
 // Session de caisse du poste : état, ouverture, résumé, entrées et sorties d'espèces.
@@ -38,12 +53,14 @@ public sealed partial class CashViewModel
     /// <summary>Faux tant que l'état de la caisse n'a pas été lu.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCashOpen), nameof(IsCashClosed), nameof(CanShowOpening), nameof(CanShowMovements),
-        nameof(CanShowSummary), nameof(CashStateText), nameof(CashOpenedText), nameof(CashFloatText), nameof(IsCashClosedWarning))]
+        nameof(CanShowSummary), nameof(CashStateText), nameof(CashOpenedText), nameof(CashFloatText), nameof(IsCashClosedWarning),
+        nameof(CanShowCloseRegister))]
     private bool isCashStateKnown;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCashOpen), nameof(IsCashClosed), nameof(CanShowOpening), nameof(CanShowMovements),
-        nameof(CanShowSummary), nameof(CashStateText), nameof(CashOpenedText), nameof(CashFloatText), nameof(IsCashClosedWarning))]
+        nameof(CanShowSummary), nameof(CashStateText), nameof(CashOpenedText), nameof(CashFloatText), nameof(IsCashClosedWarning),
+        nameof(CanShowCloseRegister))]
     private CashSessionInfo? cashSession;
 
     public bool IsCashOpen => IsCashStateKnown && CashSession is not null;
@@ -413,6 +430,12 @@ public sealed partial class CashViewModel
                 break;
             case SessionStep.MovementConfirm:
                 SessionStep = SessionStep.MovementInput;
+                break;
+            case SessionStep.CloseCount:
+                SessionStep = SessionStep.None;
+                break;
+            case SessionStep.CloseConfirm:
+                SessionStep = SessionStep.CloseCount;
                 break;
         }
     }

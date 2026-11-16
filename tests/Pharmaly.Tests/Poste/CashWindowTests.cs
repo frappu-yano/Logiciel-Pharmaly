@@ -266,11 +266,12 @@ public sealed class CashWindowTests
         Assert.Equal("Timbres", request.Reason);
         Assert.Equal("4 749,25 DA", Text(view, "ExpectedCashLabel"));
 
-        // Ctrl+Tab encore : la clôture, vide, puis retour aux impayés.
+        // Ctrl+Tab encore : la clôture, bloquée par la caisse ouverte, puis retour aux impayés.
         Press(window, PhysicalKey.Tab, RawInputModifiers.Control);
         await SettleAsync();
         Assert.True(Shown(view, "ClosingPanel"));
-        Assert.Equal(CashViewModel.ClosingNotAvailable, Text(view, "ClosingLabel"));
+        Assert.True(Shown(view, "DayBlockersPanel"));
+        Assert.False(view.FindControl<Button>("CloseDayButton")!.IsEnabled);
         Press(window, PhysicalKey.Tab, RawInputModifiers.Control);
         await SettleAsync();
         Assert.True(Shown(view, "ReceivablesPanel"));

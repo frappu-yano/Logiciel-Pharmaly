@@ -71,8 +71,15 @@ public sealed partial class CashView : UserControl, IModuleView
         switch (change.PropertyName)
         {
             case nameof(CashViewModel.Tab) or nameof(CashViewModel.Step) or nameof(CashViewModel.SessionStep)
-                or nameof(CashViewModel.IsConfirmingOpening) or nameof(CashViewModel.IsCashStateKnown):
+                or nameof(CashViewModel.IsConfirmingOpening) or nameof(CashViewModel.IsCashStateKnown)
+                or nameof(CashViewModel.ClosingStep) or nameof(CashViewModel.ClosingMode):
                 FocusAfterLayout();
+                break;
+            case nameof(CashViewModel.SelectedHistoryRow) when ViewModel?.SelectedHistoryRow is { } closure:
+                HistoryList.ScrollIntoView(closure);
+                break;
+            case nameof(CashViewModel.OpenedClosure):
+                ReportScroll.Offset = default;
                 break;
             case nameof(CashViewModel.CurrentRow) when ViewModel?.CurrentRow is { } row:
                 RowsList.ScrollIntoView(row);
@@ -126,9 +133,17 @@ public sealed partial class CashView : UserControl, IModuleView
 
         if (viewModel.IsSessionStepOpen)
         {
-            return viewModel.SessionStep == SessionStep.MovementInput
-                ? MovementReasonBox.IsFocused ? MovementReasonBox : MovementAmountBox
-                : this;
+            return viewModel.SessionStep switch
+            {
+                SessionStep.MovementInput => MovementReasonBox.IsFocused ? MovementReasonBox : MovementAmountBox,
+                SessionStep.CloseCount => CountedCashBox,
+                _ => this,
+            };
+        }
+
+        if (viewModel.IsClosingStepOpen)
+        {
+            return viewModel.ClosingStep == ClosingStep.ForceReason ? ForceReasonBox : this;
         }
 
         return viewModel.Tab switch
@@ -160,6 +175,12 @@ public sealed partial class CashView : UserControl, IModuleView
             return;
         }
 
+        if (viewModel.IsClosingStepOpen)
+        {
+            await HandleClosingStepKeyAsync(viewModel, e);
+            return;
+        }
+
         if (e.Key == Key.Tab && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             e.Handled = true;
@@ -181,6 +202,9 @@ public sealed partial class CashView : UserControl, IModuleView
                 break;
             case CashTab.Session:
                 await HandleSessionKeyAsync(viewModel, e);
+                break;
+            case CashTab.Closing when viewModel.Rights.CanViewReports:
+                await HandleClosingKeyAsync(viewModel, e);
                 break;
         }
     }
@@ -265,6 +289,13 @@ public sealed partial class CashView : UserControl, IModuleView
         {
             e.Handled = true;
             viewModel.BeginCashOut();
+            return;
+        }
+
+        if (CashShortcuts.IsAlone(e, CashShortcuts.CloseKey) && !viewModel.IsConfirmingOpening)
+        {
+            e.Handled = true;
+            viewModel.BeginCloseRegister();
             return;
         }
 
@@ -358,14 +389,22 @@ public sealed partial class CashView : UserControl, IModuleView
     private async Task HandleSessionStepKeyAsync(CashViewModel viewModel, KeyEventArgs e)
     {
         var step = viewModel.SessionStep;
-        if (step != SessionStep.MovementInput || e.Key is Key.Enter or Key.Escape or Key.Tab)
+        if (step is not (SessionStep.MovementInput or SessionStep.CloseCount) || e.Key is Key.Enter or Key.Escape or Key.Tab)
         {
             e.Handled = true;
         }
 
         if (e.Key == Key.Escape)
         {
-            viewModel.CancelSessionStep();
+            if (step is SessionStep.CloseBlocked or SessionStep.CloseDone)
+            {
+                await viewModel.FinishCloseRegisterAsync();
+            }
+            else
+            {
+                viewModel.CancelSessionStep();
+            }
+
             return;
         }
 
@@ -389,6 +428,138 @@ public sealed partial class CashView : UserControl, IModuleView
 
             case SessionStep.MovementUnconfirmed when e.Key == Key.Enter:
                 await viewModel.RetryMovementAsync();
+                break;
+
+            case SessionStep.CloseCount when e.Key == Key.Enter:
+                viewModel.ValidateCountedCash();
+                break;
+
+            case SessionStep.CloseConfirm when e.Key == Key.Enter:
+                await viewModel.ConfirmCloseRegisterAsync();
+                break;
+
+            case SessionStep.CloseUnconfirmed when e.Key == Key.Enter:
+                await viewModel.RetryCloseRegisterAsync();
+                break;
+
+            case SessionStep.CloseBlocked or SessionStep.CloseDone when e.Key == Key.Enter:
+                await viewModel.FinishCloseRegisterAsync();
+                break;
+        }
+    }
+
+    private async Task HandleClosingKeyAsync(CashViewModel viewModel, KeyEventArgs e)
+    {
+        if (CashShortcuts.IsAlone(e, CashShortcuts.CloseKey))
+        {
+            e.Handled = true;
+            viewModel.BeginCloseDay();
+            return;
+        }
+
+        if (CashShortcuts.IsAlone(e, CashShortcuts.ForcedCloseKey))
+        {
+            e.Handled = true;
+            viewModel.BeginForcedClose();
+            return;
+        }
+
+        if (CashShortcuts.IsAlone(e, CashShortcuts.HistoryKey))
+        {
+            e.Handled = true;
+            await viewModel.ToggleHistoryAsync();
+            return;
+        }
+
+        if (viewModel.IsHistoryMode)
+        {
+            switch (e.Key)
+            {
+                case Key.Down or Key.Up:
+                    e.Handled = true;
+                    viewModel.MoveHistorySelection(e.Key == Key.Down ? 1 : -1);
+                    break;
+                case Key.Enter:
+                    e.Handled = true;
+                    await viewModel.OpenSelectedClosureAsync();
+                    break;
+                case Key.Escape:
+                    e.Handled = true;
+                    await viewModel.BackInClosingAsync();
+                    break;
+            }
+
+            return;
+        }
+
+        if (e.Key == Key.Escape && viewModel.IsReportMode)
+        {
+            e.Handled = true;
+            await viewModel.BackInClosingAsync();
+            return;
+        }
+
+        // Le rapport est plus haut que l'écran : il défile au clavier.
+        var scroll = viewModel.IsReportMode ? ReportScroll : DayScroll;
+        switch (e.Key)
+        {
+            case Key.Down:
+                e.Handled = true;
+                scroll.LineDown();
+                break;
+            case Key.Up:
+                e.Handled = true;
+                scroll.LineUp();
+                break;
+            case Key.PageDown:
+                e.Handled = true;
+                scroll.PageDown();
+                break;
+            case Key.PageUp:
+                e.Handled = true;
+                scroll.PageUp();
+                break;
+            case Key.Home:
+                e.Handled = true;
+                scroll.ScrollToHome();
+                break;
+            case Key.End:
+                e.Handled = true;
+                scroll.ScrollToEnd();
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Une étape de clôture est ouverte : le clavier ne sert qu'à elle. La confirmation forte
+    /// demande F10 : un appui machinal sur Entrée ne fige jamais une journée.
+    /// </summary>
+    private static async Task HandleClosingStepKeyAsync(CashViewModel viewModel, KeyEventArgs e)
+    {
+        var step = viewModel.ClosingStep;
+        if (step != ClosingStep.ForceReason || e.Key is Key.Enter or Key.Escape or Key.Tab)
+        {
+            e.Handled = true;
+        }
+
+        if (e.Key == Key.Escape)
+        {
+            viewModel.CancelClosingStep();
+            return;
+        }
+
+        switch (step)
+        {
+            case ClosingStep.ForceReason when e.Key == Key.Enter:
+                viewModel.ValidateForceReason();
+                break;
+
+            case ClosingStep.Confirm when CashShortcuts.IsAlone(e, CashShortcuts.CloseKey):
+                await viewModel.ConfirmCloseDayAsync();
+                break;
+
+            case ClosingStep.Unconfirmed when e.Key == Key.Enter:
+                await viewModel.RetryCloseDayAsync();
                 break;
         }
     }

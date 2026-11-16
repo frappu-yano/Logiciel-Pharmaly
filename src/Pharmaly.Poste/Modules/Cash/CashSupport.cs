@@ -25,6 +25,15 @@ public static class CashShortcuts
     /// <summary>Session de caisse : sortie d'espèces.</summary>
     public const Key CashOutKey = Key.F9;
 
+    /// <summary>Session de caisse : fermer la caisse (comptage des espèces). Clôture : clôturer la journée.</summary>
+    public const Key CloseKey = Key.F10;
+
+    /// <summary>Clôture : historique des clôtures (et retour à la journée).</summary>
+    public const Key HistoryKey = Key.F7;
+
+    /// <summary>Clôture : clôture forcée malgré des opérations de secours inconnues (D37).</summary>
+    public const Key ForcedCloseKey = Key.F9;
+
     /// <summary>Relire l'onglet affiché (avec Ctrl).</summary>
     public const Key RefreshKey = Key.R;
 
@@ -50,9 +59,11 @@ public sealed record CashRights(
     bool CanSettle,
     bool CanOpenRegister,
     bool CanViewReports,
-    bool CanMoveCash)
+    bool CanMoveCash,
+    bool CanCloseRegister = false,
+    bool CanAdministerUsers = false)
 {
-    public static readonly CashRights All = new(true, true, true, true, true);
+    public static readonly CashRights All = new(true, true, true, true, true, true, true);
 
     public static CashRights From(SessionViewModel session) => From(session.HasPermission);
 
@@ -61,7 +72,12 @@ public sealed record CashRights(
         hasPermission(Permissions.ReceivablesSettle),
         hasPermission(Permissions.RegisterOpen),
         hasPermission(Permissions.RegisterReportsView),
-        hasPermission(Permissions.PaymentsCollect));
+        hasPermission(Permissions.PaymentsCollect),
+        hasPermission(Permissions.RegisterClose),
+        hasPermission(Permissions.UsersAdminister));
+
+    /// <summary>Clôture forcée malgré des opérations de secours inconnues : les deux droits sont exigés (D37).</summary>
+    public bool CanForceClose => CanCloseRegister && CanAdministerUsers;
 }
 
 /// <summary>Onglets du module.</summary>

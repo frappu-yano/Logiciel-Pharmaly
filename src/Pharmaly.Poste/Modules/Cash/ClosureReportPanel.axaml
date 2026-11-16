@@ -1,0 +1,132 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Pharmaly.Poste.Modules.Cash"
+             x:Class="Pharmaly.Poste.Modules.Cash.ClosureReportPanel"
+             x:DataType="local:ClosureReportViewModel">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.number">
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontFeatures" Value="tnum" />
+    </Style>
+    <Style Selector="TextBlock.blockTitle">
+      <Setter Property="FontSize" Value="17" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="TextBlock.subTitle">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,6,0,0" />
+    </Style>
+    <Style Selector="Border.line">
+      <Setter Property="Padding" Value="6,3" />
+      <Setter Property="CornerRadius" Value="5" />
+    </Style>
+    <Style Selector="Border.line.total">
+      <Setter Property="Background" Value="{StaticResource TurquoiseSoftBrush}" />
+    </Style>
+    <Style Selector="Border.line.total TextBlock">
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="Border.line.alert">
+      <Setter Property="Background" Value="{StaticResource PeachSoftBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource PeachBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Border.line.alert TextBlock">
+      <Setter Property="Foreground" Value="#9A2B12" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="TextBlock.alert">
+      <Setter Property="Foreground" Value="#9A2B12" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.DataTemplates>
+    <DataTemplate x:DataType="local:ReportLine">
+      <Border Classes="line" Classes.total="{Binding IsTotal}" Classes.alert="{Binding IsAlert}">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
+            <TextBlock Classes="label" FontSize="11" Text="{Binding Note}"
+                       IsVisible="{Binding Note, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+          <TextBlock Grid.Column="1" Classes="number" Text="{Binding Amount}" />
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </UserControl.DataTemplates>
+
+  <StackPanel Spacing="10">
+
+    <!-- Caisses de la journée -->
+    <Border Classes="card" Padding="14,10">
+      <StackPanel Spacing="4">
+        <TextBlock Classes="blockTitle" Text="Caisses — espèces attendues, comptées, écart" />
+        <TextBlock Classes="label" Text="Aucune caisse n'a été ouverte." IsVisible="{Binding !HasRegisters}" />
+        <Grid ColumnDefinitions="2*,3*,1.3*,1.3*,1.6*" ColumnSpacing="8" IsVisible="{Binding HasRegisters}">
+          <TextBlock Classes="label" Text="Caisse" />
+          <TextBlock Grid.Column="1" Classes="label" Text="Ouverture et fermeture" />
+          <TextBlock Grid.Column="2" Classes="label number" Text="Attendu" />
+          <TextBlock Grid.Column="3" Classes="label number" Text="Compté" />
+          <TextBlock Grid.Column="4" Classes="label number" Text="Écart" />
+        </Grid>
+        <ItemsControl x:Name="RegistersList" ItemsSource="{Binding Registers}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="local:RegisterRowViewModel">
+              <Grid ColumnDefinitions="2*,3*,1.3*,1.3*,1.6*" ColumnSpacing="8" Margin="0,4">
+                <StackPanel VerticalAlignment="Center">
+                  <TextBlock Text="{Binding RegisterName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding StatusText}" Classes="alert" IsVisible="{Binding IsOpen}" />
+                  <TextBlock Text="{Binding StatusText}" Classes="label" IsVisible="{Binding !IsOpen}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Classes="label" Text="{Binding OpenedText}" TextWrapping="Wrap" />
+                  <TextBlock Classes="label" Text="{Binding ClosedText}" TextWrapping="Wrap" />
+                  <TextBlock Classes="alert" Text="{Binding PendingCardText}" IsVisible="{Binding HasPendingCard}" />
+                </StackPanel>
+                <TextBlock Grid.Column="2" Classes="number" Text="{Binding ExpectedText}" />
+                <TextBlock Grid.Column="3" Classes="number" Text="{Binding CountedText}" />
+                <TextBlock Grid.Column="4" Classes="number" Text="{Binding DifferenceText}" TextWrapping="Wrap"
+                           Classes.alert="{Binding IsDifferenceAlert}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+
+    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+      <StackPanel Spacing="10">
+        <!-- Chiffre d'affaires -->
+        <Border x:Name="RevenueBlock" Classes="card" Padding="14,10">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="blockTitle" Text="Chiffre d'affaires du jour" />
+            <TextBlock Classes="label" TextWrapping="Wrap" Text="Ce qui a été vendu, payé ou non. Ce n'est pas l'argent encaissé." />
+            <ItemsControl x:Name="RevenueLinesList" ItemsSource="{Binding RevenueLines}" Margin="0,4,0,0" />
+          </StackPanel>
+        </Border>
+
+        <!-- Créances -->
+        <Border x:Name="ReceivablesBlock" Classes="card" Padding="14,10">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="blockTitle" Text="Créances" />
+            <ItemsControl x:Name="ReceivableLinesList" ItemsSource="{Binding ReceivableLines}" Margin="0,4,0,0" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <!-- Trésorerie -->
+      <Border Grid.Column="1" x:Name="TreasuryBlock" Classes="card" Padding="14,10" VerticalAlignment="Top">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="blockTitle" Text="Trésorerie du jour" />
+          <TextBlock Classes="label" TextWrapping="Wrap" Text="L'argent réellement entré et sorti. Ce n'est pas le chiffre d'affaires." />
+          <TextBlock Classes="subTitle" Text="Espèces" />
+          <ItemsControl x:Name="TreasuryCashLinesList" ItemsSource="{Binding TreasuryCashLines}" />
+          <TextBlock Classes="subTitle" Text="TPE" />
+          <ItemsControl x:Name="TreasuryCardLinesList" ItemsSource="{Binding TreasuryCardLines}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </StackPanel>
+</UserControl>
