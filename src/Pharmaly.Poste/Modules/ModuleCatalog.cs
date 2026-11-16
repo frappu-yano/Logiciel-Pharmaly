@@ -58,7 +58,10 @@ public static class ModuleCatalog
                 Permissions.SalesCreate, Permissions.PaymentsCollect, Permissions.DiscountsApply,
                 Permissions.ReturnsCreate, Permissions.SalesCancel, Permissions.SalesHistoryView,
             ],
-            _ => new SalesViewModel(), () => new SalesView()),
+            context => new SalesViewModel(
+                context.Clients.Sales, context.Clients.Customers, context.Clients.CashSession, context.Clients.Catalog,
+                SalesRights.From(context.Session), context.SearchDelay, new NoTicketPrinter()),
+            () => new SalesView()),
 
         new(ModuleKeys.SupplierNotes, "Bons fournisseurs",
             [

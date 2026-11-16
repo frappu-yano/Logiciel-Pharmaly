@@ -17,6 +17,12 @@ public sealed class ServerClients
 
     public required ISupplierNotesClient SupplierNotes { get; init; }
 
+    public required ISalesClient Sales { get; init; }
+
+    public required ICustomersClient Customers { get; init; }
+
+    public required ICashSessionClient CashSession { get; init; }
+
     public static ServerClients Create(IServerTransport transport) => new()
     {
         Access = new AccessClient(transport),
@@ -24,5 +30,8 @@ public sealed class ServerClients
         Admin = new AdminClient(transport),
         Stock = new StockClient(transport),
         SupplierNotes = new SupplierNotesClient(transport),
+        Sales = new SalesClient(transport),
+        Customers = new CustomersClient(transport),
+        CashSession = new CashSessionClient(transport),
     };
 }

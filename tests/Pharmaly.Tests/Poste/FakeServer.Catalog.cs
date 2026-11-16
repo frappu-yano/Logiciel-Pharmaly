@@ -53,6 +53,35 @@ internal sealed partial class FakeServer : ICatalogClient
     /// <summary>Quand il est renseigné, chaque écriture attend qu'il soit complété (serveur lent).</summary>
     public TaskCompletionSource? HoldWrites { get; set; }
 
+    /// <summary>
+    /// Stock vendable du site du poste (emplacement principal), lu et écrit par les ventes.
+    /// C'est le même stock que celui des fiches produits : une seule vérité, comme sur le serveur.
+    /// </summary>
+    public MainStock StockLevels => new(this);
+
+    public sealed class MainStock(FakeServer server)
+    {
+        public decimal this[Guid productId]
+        {
+            get => server.Find(productId).Stock.GetValueOrDefault(MainLocation.Id);
+            set => server.Find(productId).Stock[MainLocation.Id] = value;
+        }
+
+        public decimal GetValueOrDefault(Guid productId) =>
+            server.products.FirstOrDefault(product => product.Id == productId)?.Stock.GetValueOrDefault(MainLocation.Id) ?? 0;
+    }
+
+    /// <summary>Fixe le stock vendable de départ de la crème et du sérum (les tests de vente partent de 10).</summary>
+    public FakeServer WithStock(decimal creme, decimal serum)
+    {
+        StockLevels[Creme.Id] = creme;
+        StockLevels[Serum.Id] = serum;
+        return this;
+    }
+
+    /// <summary>Simule un changement de prix de vente fait depuis un autre poste.</summary>
+    public void ChangeSalePriceElsewhere(Guid productId, decimal newPrice) => Find(productId).SalePrice = newPrice;
+
     /// <summary>Simule un employé sans le droit de consulter les produits.</summary>
     public bool DenyProducts
     {
@@ -167,11 +196,19 @@ internal sealed partial class FakeServer : ICatalogClient
             .ToList());
     }
 
-    public Task<ProductSummary?> FindByBarcodeAsync(string barcode, CancellationToken cancellationToken)
+    /// <summary>Quand il est défini, chaque lecture de code-barres attend qu'il soit terminé (serveur lent).</summary>
+    public TaskCompletionSource? BarcodeGate { get; set; }
+
+    public async Task<ProductSummary?> FindByBarcodeAsync(string barcode, CancellationToken cancellationToken)
     {
+        if (BarcodeGate is { } gate)
+        {
+            await gate.Task;
+        }
+
         EnsurePermission(Permissions.ProductsView);
         var found = products.FirstOrDefault(product => product.IsActive && product.Barcodes.Contains(barcode));
-        return Task.FromResult(found is null ? null : Summarize(found));
+        return found is null ? null : Summarize(found);
     }
 
     public Task<ProductDetail> GetProductAsync(Guid productId, CancellationToken cancellationToken)

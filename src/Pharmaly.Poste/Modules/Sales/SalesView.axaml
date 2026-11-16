@@ -1,16 +1,647 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:Pharmaly.Poste.Modules.Sales"
+             xmlns:contracts="using:Pharmaly.Contracts"
+             xmlns:views="using:Pharmaly.Poste.Views"
              x:Class="Pharmaly.Poste.Modules.Sales.SalesView"
              x:DataType="local:SalesViewModel"
              Focusable="True">
-  <!-- État vide : à remplacer par l'écran du module. -->
-  <Border Classes="card empty">
-    <StackPanel Spacing="8">
-      <TextBlock Classes="emptyTitle" Text="Vente" />
-      <TextBlock x:Name="EmptyStateLabel" Classes="emptyState" Text="Module en cours de développement" />
-      <TextBlock Classes="label" TextAlignment="Center" TextWrapping="Wrap"
-                 Text="Aucune opération n'est possible ici pour l'instant." />
-    </StackPanel>
-  </Border>
+  <UserControl.Styles>
+    <!-- Colonnes de chiffres : alignées à droite, chiffres de même largeur. -->
+    <Style Selector="TextBlock.number">
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontFeatures" Value="tnum" />
+    </Style>
+    <Style Selector="TextBlock.over">
+      <Setter Property="Foreground" Value="#9A2B12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.stepTitle">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.stepError">
+      <Setter Property="Foreground" Value="#9A2B12" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.big">
+      <Setter Property="FontSize" Value="30" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="FontFeatures" Value="tnum" />
+    </Style>
+    <Style Selector="TextBlock.huge">
+      <Setter Property="FontSize" Value="46" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="FontFeatures" Value="tnum" />
+    </Style>
+    <Style Selector="Button.pay">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="MinHeight" Value="52" />
+      <Setter Property="FontSize" Value="17" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.step">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="MinHeight" Value="46" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.refuse">
+      <Setter Property="Background" Value="{StaticResource PeachBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="18,12" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Border.warning">
+      <Setter Property="Background" Value="{StaticResource PeachSoftBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource PeachBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="14,12" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid>
+
+    <!-- État de la caisse inconnu -->
+    <Border Classes="card empty" IsVisible="{Binding IsLoading}">
+      <StackPanel Spacing="10">
+        <TextBlock Classes="emptyTitle" Text="Vente" />
+        <TextBlock Classes="emptyState" Text="Lecture de l'état de la caisse…" />
+        <TextBlock Classes="stepError" Text="{Binding ErrorMessage}" TextAlignment="Center"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <Button Classes="quiet" Content="Réessayer (Entrée)" Command="{Binding RefreshCashSessionCommand}"
+                HorizontalAlignment="Center" Focusable="False"
+                IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Aucun droit utile -->
+    <Border Classes="card empty" IsVisible="{Binding IsNoRight}">
+      <StackPanel Spacing="8">
+        <TextBlock Classes="emptyTitle" Text="Vente" />
+        <TextBlock x:Name="NoRightLabel" Classes="emptyState" Text="{x:Static local:SalesViewModel.NoRightMessage}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Caisse fermée -->
+    <Border x:Name="CashClosedPanel" Classes="card" Width="560" Padding="28" IsVisible="{Binding IsCashClosed}"
+            HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="14">
+        <TextBlock x:Name="CashClosedLabel" Text="{x:Static local:SalesViewModel.CashClosedTitle}" FontSize="24"
+                   FontWeight="Bold" TextWrapping="Wrap" />
+        <TextBlock Classes="label" TextWrapping="Wrap" Text="Aucune vente n'est possible tant que la caisse de ce poste est fermée." />
+        <Border Classes="message info" IsVisible="{Binding HasLines}">
+          <TextBlock TextWrapping="Wrap" FontWeight="Medium"
+                     Text="Le panier en cours est conservé : il réapparaîtra dès que la caisse sera ouverte." />
+        </Border>
+
+        <!-- Avec le droit d'ouvrir la caisse -->
+        <StackPanel Spacing="12" IsVisible="{Binding CanOpenRegister}">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="label" Text="Fond de caisse compté, en dinars (0 si la caisse est vide)" />
+            <TextBox x:Name="OpeningFloatBox" Text="{Binding OpeningFloatText}" FontSize="22" Padding="12,10"
+                     TextAlignment="Right" IsEnabled="{Binding !IsConfirmingOpening}" />
+          </StackPanel>
+          <Button Classes="primary step" Content="Valider le fond de caisse (Entrée)" Command="{Binding RequestCashOpeningCommand}"
+                  IsVisible="{Binding !IsConfirmingOpening}" />
+          <Border x:Name="OpeningConfirmationPanel" Classes="warning" IsVisible="{Binding IsConfirmingOpening}">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Ouvrir la caisse avec ce fond de caisse ?" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock x:Name="OpeningConfirmationLabel" Classes="big number" Text="{Binding OpeningFloatDisplayText}" />
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                <Button Classes="quiet step" Content="Corriger (Échap)" Command="{Binding CancelCashOpeningCommand}" />
+                <Button Grid.Column="1" Classes="primary step" Content="Ouvrir (Entrée)"
+                        Command="{Binding ConfirmCashOpeningCommand}" />
+              </Grid>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- Sans le droit -->
+        <StackPanel Spacing="12" IsVisible="{Binding CannotOpenRegister}">
+          <Border Classes="warning">
+            <TextBlock x:Name="CashClosedWithoutRightLabel" Text="{x:Static local:SalesViewModel.CashClosedWithoutRight}"
+                       TextWrapping="Wrap" FontWeight="Medium" />
+          </Border>
+          <Button Classes="quiet step" Content="Vérifier de nouveau (Entrée)" Command="{Binding RefreshCashSessionCommand}" />
+        </StackPanel>
+
+        <TextBlock x:Name="CashClosedErrorLabel" Classes="stepError" Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <Button Classes="quiet step" Content="Historique des ventes (Ctrl+H)" Command="{Binding OpenHistoryCommand}"
+                IsVisible="{Binding CanViewHistory}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Panier -->
+    <Grid x:Name="CartPanel" IsVisible="{Binding IsCart}" ColumnDefinitions="*,290" ColumnSpacing="14" Margin="16,12">
+
+      <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="10">
+
+        <!-- Recherche -->
+        <Border Classes="card" Padding="14,10">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="label" Text="Scanner un code-barres, ou saisir un nom puis Entrée" />
+            <TextBox x:Name="SearchBox" Text="{Binding Query}" FontSize="18" Padding="12,9"
+                     PlaceholderText="Code-barres, nom ou code interne" />
+          </StackPanel>
+        </Border>
+
+        <!-- Lignes, avec les résultats de la recherche par-dessus -->
+        <Border Grid.Row="1" Classes="card" Padding="0" ClipToBounds="True">
+          <Grid>
+            <DockPanel>
+              <Border DockPanel.Dock="Top" Padding="12,8" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,52,106,52,118" ColumnSpacing="8">
+                  <TextBlock Classes="label" Text="Désignation" />
+                  <TextBlock Grid.Column="1" Classes="label number" Text="Stock" />
+                  <TextBlock Grid.Column="2" Classes="label number" Text="Prix unitaire" />
+                  <TextBlock Grid.Column="3" Classes="label number" Text="Qté" />
+                  <TextBlock Grid.Column="4" Classes="label number" Text="Total" />
+                </Grid>
+              </Border>
+              <Grid>
+                <TextBlock Classes="emptyState" Text="Panier vide — scannez le premier article" IsVisible="{Binding !HasLines}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <ListBox x:Name="LinesList" ItemsSource="{Binding Lines}" SelectedItem="{Binding SelectedLine}"
+                         Background="Transparent" Focusable="False">
+                  <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                      <Setter Property="Focusable" Value="False" />
+                    </Style>
+                  </ListBox.Styles>
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="local:SaleLineViewModel">
+                      <Grid ColumnDefinitions="*,52,106,52,118" ColumnSpacing="8">
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                   ToolTip.Tip="{Binding Name}" />
+                        <TextBlock Grid.Column="1" Classes="label number" Classes.over="{Binding IsOverStock}"
+                                   Text="{Binding StockText}" />
+                        <TextBlock Grid.Column="2" Classes="number" Text="{Binding UnitPriceText}" />
+                        <TextBlock Grid.Column="3" Classes="number" Classes.over="{Binding IsOverStock}"
+                                   Text="{Binding QuantityText}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="4" Classes="number" Text="{Binding LineTotalText}" FontWeight="SemiBold" />
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </Grid>
+            </DockPanel>
+
+            <Border x:Name="ResultsPanel" Classes="card" Padding="0" IsVisible="{Binding HasResults}" MaxHeight="250"
+                    VerticalAlignment="Top" Margin="6,4,6,0" BorderBrush="{StaticResource TurquoiseBrush}" BorderThickness="2">
+              <ListBox x:Name="ResultsList" ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedResult}"
+                       Background="Transparent" Focusable="False">
+                <ListBox.Styles>
+                  <Style Selector="ListBoxItem">
+                    <Setter Property="Focusable" Value="False" />
+                  </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="contracts:ProductSummary">
+                    <Grid ColumnDefinitions="*,Auto,84,116" ColumnSpacing="12">
+                      <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" Text="{Binding Barcode}" Classes="label" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Classes="label number"
+                                 Text="{Binding SellableStock, StringFormat='stock {0:0.###}'}" />
+                      <TextBlock Grid.Column="3" Classes="number" FontWeight="SemiBold"
+                                 Text="{Binding SalePrice, Converter={x:Static views:MoneyConverter.Instance}}" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Border>
+          </Grid>
+        </Border>
+
+        <!-- Messages -->
+        <StackPanel Grid.Row="2" Spacing="6">
+          <Border Classes="message error"
+                  IsVisible="{Binding StockWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock x:Name="StockWarningLabel" Text="{Binding StockWarning}" TextWrapping="Wrap" FontWeight="Medium" />
+          </Border>
+          <Border Classes="message error"
+                  IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock x:Name="ErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+          </Border>
+          <Border Classes="message info"
+                  IsVisible="{Binding InfoMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock x:Name="InfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+          </Border>
+        </StackPanel>
+
+        <!-- Aide -->
+        <StackPanel Grid.Row="3" Spacing="2">
+          <TextBlock Classes="label" TextWrapping="Wrap"
+                     Text="↑ ↓ : ligne ou résultat · + − : quantité · / : saisir la quantité · Suppr : retirer la ligne · Ctrl+Suppr : vider le panier" />
+          <TextBlock x:Name="LockWarningLabel" Classes="label" TextWrapping="Wrap" FontWeight="SemiBold"
+                     Text="{x:Static local:SalesViewModel.LockWarning}" />
+        </StackPanel>
+      </Grid>
+
+      <!-- Totaux et encaissement -->
+      <DockPanel Grid.Column="1">
+        <StackPanel DockPanel.Dock="Bottom" Spacing="6">
+          <Button Classes="quiet pay" MinHeight="42" FontSize="15" FontWeight="Medium" Command="{Binding OpenHistoryCommand}"
+                  IsVisible="{Binding CanViewHistory}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <Border Classes="key"><TextBlock Text="Ctrl+H" FontSize="12" FontWeight="SemiBold" /></Border>
+              <TextBlock Grid.Column="1" Text="Historique et annulation" VerticalAlignment="Center" />
+            </Grid>
+          </Button>
+          <TextBlock x:Name="CashSessionLabel" Classes="label" Text="{Binding CashSessionText}" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+
+        <StackPanel Spacing="10">
+          <Border Classes="card" Padding="16,12">
+            <StackPanel Spacing="6">
+              <TextBlock x:Name="LineCountLabel" Classes="label" Text="{Binding LineCountText}" />
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasDiscount}">
+                <TextBlock Text="Sous-total" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" x:Name="SubtotalLabel" Classes="number" Text="{Binding SubtotalText}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasDiscount}">
+                <TextBlock x:Name="DiscountTitleLabel" Text="{Binding DiscountTitle}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" x:Name="DiscountLabel" Classes="number" Classes.over="{Binding IsDiscountTooLarge}"
+                           Text="{Binding DiscountAmountText}" />
+              </Grid>
+              <TextBlock Classes="label" Text="TOTAL À PAYER" FontWeight="SemiBold" Margin="0,4,0,0" />
+              <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Right" Height="52">
+                <TextBlock x:Name="TotalLabel" Text="{Binding TotalText}" FontSize="38" FontWeight="Bold" FontFeatures="tnum" />
+              </Viewbox>
+            </StackPanel>
+          </Border>
+
+          <Button x:Name="DiscountButton" Classes="quiet pay" MinHeight="42" FontSize="15" FontWeight="Medium"
+                  Command="{Binding BeginDiscountEditCommand}" IsVisible="{Binding CanDiscount}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <Border Classes="key"><TextBlock Text="{Binding DiscountKeyLabel}" FontSize="12" FontWeight="SemiBold" /></Border>
+              <TextBlock Grid.Column="1" Text="Remise sur la vente" VerticalAlignment="Center" />
+            </Grid>
+          </Button>
+
+          <Button x:Name="CashButton" Classes="primary pay" Command="{Binding BeginCashCommand}" IsVisible="{Binding CanPayCash}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <Border Classes="key" MinWidth="34">
+                <TextBlock x:Name="CashKeyLabel" Text="{Binding CashKeyLabel}" FontSize="16" FontWeight="Bold"
+                           HorizontalAlignment="Center" />
+              </Border>
+              <TextBlock Grid.Column="1" Text="ESPÈCES" VerticalAlignment="Center" />
+            </Grid>
+          </Button>
+          <Button x:Name="CardButton" Classes="quiet pay" Command="{Binding BeginCardCommand}" IsVisible="{Binding CanPayCard}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <Border Classes="key" MinWidth="34">
+                <TextBlock x:Name="CardKeyLabel" Text="{Binding CardKeyLabel}" FontSize="13" FontWeight="Bold"
+                           HorizontalAlignment="Center" />
+              </Border>
+              <TextBlock Grid.Column="1" Text="TPE (carte)" VerticalAlignment="Center" />
+            </Grid>
+          </Button>
+          <Button x:Name="UnpaidButton" Classes="quiet pay" Command="{Binding BeginUnpaidCommand}"
+                  IsVisible="{Binding CanSellUnpaid}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <Border Classes="key" MinWidth="34">
+                <TextBlock Text="{Binding UnpaidKeyLabel}" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" />
+              </Border>
+              <TextBlock Grid.Column="1" Text="IMPAYÉ (client)" VerticalAlignment="Center" />
+            </Grid>
+          </Button>
+        </StackPanel>
+      </DockPanel>
+    </Grid>
+
+    <!-- Historique -->
+    <Border IsVisible="{Binding IsHistory}">
+      <local:SalesHistoryView x:Name="HistoryView" DataContext="{Binding History}" />
+    </Border>
+
+    <!-- Étapes par-dessus le panier -->
+    <Border x:Name="StepOverlay" Background="#99111111" IsVisible="{Binding IsStepOpen}" ZIndex="10">
+      <Border Classes="card" Width="600" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid>
+
+          <!-- Quantité -->
+          <StackPanel x:Name="QuantityPanel" Spacing="12"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.Quantity}}">
+            <TextBlock Classes="stepTitle" Text="Quantité" />
+            <TextBlock Text="{Binding QuantityTitle}" TextWrapping="Wrap" />
+            <TextBox x:Name="QuantityBox" Text="{Binding QuantityText}" FontSize="24" Padding="12,10" TextAlignment="Right" />
+            <TextBlock x:Name="QuantityErrorLabel" Classes="stepError" Text="{Binding StepError}"
+                       IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Annuler (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Valider (Entrée)" Command="{Binding ConfirmQuantityCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Remise -->
+          <StackPanel x:Name="DiscountPanel" Spacing="12"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.Discount}}">
+            <TextBlock Classes="stepTitle" Text="Remise sur la vente entière" />
+            <TextBlock Classes="label" TextWrapping="Wrap"
+                       Text="Un montant (500 ou 500,50) ou un pourcentage (10 %). Laisser vide pour retirer la remise." />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Sous-total" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Classes="number" Text="{Binding SubtotalText}" FontWeight="SemiBold" />
+            </Grid>
+            <TextBox x:Name="DiscountBox" Text="{Binding DiscountInput}" FontSize="24" Padding="12,10" TextAlignment="Right" />
+            <TextBlock x:Name="DiscountErrorLabel" Classes="stepError" Text="{Binding StepError}"
+                       IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Annuler (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Valider (Entrée)" Command="{Binding ConfirmDiscountCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Vider le panier -->
+          <StackPanel Spacing="14"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.Abandon}}">
+            <TextBlock Classes="stepTitle" Text="Vider le panier ?" />
+            <TextBlock TextWrapping="Wrap" Text="Toutes les lignes saisies seront effacées. Aucune vente n'est enregistrée." />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Garder le panier (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Vider le panier (Entrée)" Command="{Binding ConfirmAbandonCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Espèces : montant reçu -->
+          <StackPanel x:Name="CashAmountPanel" Spacing="12"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.CashAmount}}">
+            <TextBlock Classes="stepTitle" Text="Espèces" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Total à payer" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Classes="big number" Text="{Binding TotalText}" />
+            </Grid>
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" Text="Montant reçu (laisser vide si le client donne le montant exact)" />
+              <TextBox x:Name="ReceivedBox" Text="{Binding ReceivedText}" FontSize="24" Padding="12,10" TextAlignment="Right" />
+            </StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Monnaie à rendre" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="ChangePreviewLabel" Classes="big number" Text="{Binding ChangePreviewText}" />
+            </Grid>
+            <TextBlock x:Name="CashErrorLabel" Classes="stepError" Text="{Binding StepError}"
+                       IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Annuler (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Valider (Entrée)"
+                      Command="{Binding ValidateCashAmountCommand}" />
+            </Grid>
+            <TextBlock Classes="label" Text="Rien n'est encore enregistré : la confirmation vient ensuite." TextWrapping="Wrap" />
+          </StackPanel>
+
+          <!-- Espèces : confirmation -->
+          <StackPanel x:Name="CashConfirmPanel" Spacing="10"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.CashConfirm}}">
+            <TextBlock Classes="stepTitle" Text="Espèces — confirmer l'encaissement" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Total à payer" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Classes="number" FontSize="20" FontWeight="SemiBold" Text="{Binding TotalText}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Montant reçu" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="AmountReceivedLabel" Classes="number" FontSize="20" FontWeight="SemiBold"
+                         Text="{Binding AmountReceivedText}" />
+            </Grid>
+            <Border Background="{StaticResource TurquoiseSoftBrush}" CornerRadius="8" Padding="16,10">
+              <StackPanel>
+                <TextBlock Text="MONNAIE À RENDRE" FontWeight="SemiBold" />
+                <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Right" Height="62">
+                  <TextBlock x:Name="ChangeDueLabel" Classes="huge" Text="{Binding ChangeDueText}" />
+                </Viewbox>
+              </StackPanel>
+            </Border>
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Modifier (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Encaisser (Entrée)"
+                      Command="{Binding ConfirmSaleCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- TPE : confirmation -->
+          <StackPanel x:Name="CardConfirmPanel" Spacing="12"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.CardConfirm}}">
+            <TextBlock Classes="stepTitle" Text="TPE — lancer le paiement par carte" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Total à payer" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Classes="big number" Text="{Binding TotalText}" />
+            </Grid>
+            <TextBlock TextWrapping="Wrap"
+                       Text="La vente sera enregistrée « en attente TPE ». Vous indiquerez ensuite si le terminal a accepté ou refusé le paiement." />
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Annuler (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Lancer le paiement (Entrée)"
+                      Command="{Binding ConfirmSaleCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- TPE : réponse du terminal -->
+          <StackPanel x:Name="CardPendingPanel" Spacing="12"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.CardPending}}">
+            <TextBlock Classes="stepTitle" Text="Paiement par carte en attente" />
+            <TextBlock x:Name="PendingCardLabel" Classes="big" Text="{Binding PendingCardText}" FontSize="22" TextWrapping="Wrap" />
+            <TextBlock TextWrapping="Wrap" Text="Encaissez ce montant sur le terminal, puis indiquez sa réponse." />
+            <Button x:Name="CardAcceptedButton" Classes="primary pay" Command="{Binding AcceptCardCommand}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <Border Classes="key" MinWidth="34">
+                  <TextBlock Text="{Binding CardAcceptedKeyLabel}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" />
+                </Border>
+                <TextBlock Grid.Column="1" Text="Paiement accepté" VerticalAlignment="Center" />
+              </Grid>
+            </Button>
+            <Button x:Name="CardRefusedButton" Classes="refuse pay" Command="{Binding RefuseCardCommand}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <Border Classes="key" MinWidth="34">
+                  <TextBlock Text="{Binding CardRefusedKeyLabel}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" />
+                </Border>
+                <TextBlock Grid.Column="1" Text="Paiement refusé — la vente est annulée" VerticalAlignment="Center" />
+              </Grid>
+            </Button>
+            <TextBlock Classes="label" TextWrapping="Wrap"
+                       Text="Entrée ne répond pas à la place du terminal. Refusé : le stock est restitué et le panier reste à l'écran." />
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <TextBlock x:Name="CardErrorLabel" Classes="stepError" Text="{Binding StepError}"
+                       IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+
+          <!-- Impayé : choix du client -->
+          <StackPanel x:Name="UnpaidCustomerPanel" Spacing="10"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.UnpaidCustomer}}">
+            <TextBlock Classes="stepTitle" Text="Vente impayée — choisir le client" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Montant qui restera dû" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Classes="number" FontSize="20" FontWeight="SemiBold" Text="{Binding TotalText}" />
+            </Grid>
+            <TextBox x:Name="CustomerSearchBox" Text="{Binding CustomerQuery}" FontSize="18" Padding="12,9"
+                     PlaceholderText="Nom ou téléphone du client" />
+            <Border Classes="card" Padding="0" IsVisible="{Binding HasCustomerResults}" MaxHeight="190">
+              <ListBox x:Name="CustomerList" ItemsSource="{Binding CustomerResults}"
+                       SelectedItem="{Binding SelectedCustomerResult}" Background="Transparent" Focusable="False">
+                <ListBox.Styles>
+                  <Style Selector="ListBoxItem">
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="Padding" Value="12,8" />
+                  </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="contracts:CustomerSummary">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                      <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" Classes="label" Text="{Binding Phone}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Classes="label number" MinWidth="110"
+                                 Text="{Binding OpenAmount, Converter={x:Static views:MoneyConverter.Instance}, StringFormat='doit {0}'}" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Border>
+            <TextBlock x:Name="CustomerErrorLabel" Classes="stepError" Text="{Binding StepError}"
+                       IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+              <Button Classes="quiet step" Content="Annuler (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="quiet step" Content="Nouveau (Ctrl+N)" Command="{Binding BeginNewCustomerCommand}" />
+              <Button Grid.Column="2" Classes="primary step" Content="Choisir (Entrée)" Command="{Binding ChooseCustomerCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Impayé : création rapide du client -->
+          <StackPanel x:Name="NewCustomerPanel" Spacing="10"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.UnpaidNewCustomer}}">
+            <TextBlock Classes="stepTitle" Text="Nouveau client" />
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" Text="Nom (obligatoire)" />
+              <TextBox x:Name="NewCustomerNameBox" Text="{Binding NewCustomerName}" FontSize="18" Padding="12,9" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" Text="Téléphone (facultatif)" />
+              <TextBox x:Name="NewCustomerPhoneBox" Text="{Binding NewCustomerPhone}" FontSize="18" Padding="12,9" />
+            </StackPanel>
+            <TextBlock Classes="stepError" Text="{Binding StepError}"
+                       IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Retour (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Créer le client (Entrée)"
+                      Command="{Binding CreateCustomerCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Impayé : confirmation -->
+          <StackPanel x:Name="UnpaidConfirmPanel" Spacing="12"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.UnpaidConfirm}}">
+            <TextBlock Classes="stepTitle" Text="Vente impayée — confirmer" />
+            <StackPanel Spacing="2">
+              <TextBlock Classes="label" Text="Client" />
+              <TextBlock x:Name="UnpaidCustomerLabel" Text="{Binding CustomerText}" FontSize="22" FontWeight="Bold"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Montant dû" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="UnpaidTotalLabel" Classes="big number" Text="{Binding TotalText}" />
+            </Grid>
+            <Border Classes="warning">
+              <TextBlock TextWrapping="Wrap" FontWeight="Medium"
+                         Text="Aucun encaissement : le ticket sera marqué IMPAYÉ et une créance sera ouverte au nom de ce client." />
+            </Border>
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Autre client (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Confirmer (Entrée)"
+                      Command="{Binding ConfirmSaleCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Vente non confirmée -->
+          <StackPanel x:Name="UnconfirmedPanel" Spacing="14"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.Unconfirmed}}">
+            <Border Classes="warning">
+              <TextBlock x:Name="UnconfirmedLabel" Text="{x:Static local:SalesViewModel.UnconfirmedTitle}" FontSize="22"
+                         FontWeight="Bold" TextWrapping="Wrap" />
+            </Border>
+            <TextBlock TextWrapping="Wrap"
+                       Text="Le serveur n'a pas répondu : on ne sait pas si la vente est enregistrée. Le panier est figé." />
+            <TextBlock TextWrapping="Wrap"
+                       Text="Réessayez : c'est la même vente qui est renvoyée, elle ne sera jamais enregistrée deux fois. Si le serveur reste injoignable, prévenez un responsable." />
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Button x:Name="RetryButton" Classes="primary step" Content="Réessayer (Entrée)" Command="{Binding RetrySaleCommand}" />
+          </StackPanel>
+
+          <!-- Total différent -->
+          <StackPanel x:Name="TotalChangedPanel" Spacing="12"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.TotalChanged}}">
+            <TextBlock Classes="stepTitle" Text="Le total a changé — rien n'est enregistré" />
+            <Border Classes="warning">
+              <TextBlock x:Name="TotalChangeLabel" Text="{Binding TotalChangeMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+            </Border>
+            <ItemsControl ItemsSource="{Binding PriceChanges}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                  <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock x:Name="TotalChangeSummaryLabel" Text="{Binding TotalChangeSummary}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Au panier (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Reprendre (Entrée)"
+                      Command="{Binding AcknowledgeTotalChangeCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Vente enregistrée -->
+          <StackPanel x:Name="DonePanel" Spacing="10"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:CheckoutStep.Done}}">
+            <Border Background="{StaticResource TurquoiseBrush}" CornerRadius="8" Padding="16,10">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Vente enregistrée" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" x:Name="DoneTicketLabel" Text="{Binding DoneTicketText}" FontSize="18"
+                           FontWeight="SemiBold" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Total" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="DoneTotalLabel" Classes="big number" Text="{Binding DoneTotalText}" />
+            </Grid>
+
+            <StackPanel Spacing="8" IsVisible="{Binding IsDoneCash}">
+              <TextBlock x:Name="DoneReceivedLabel" Classes="number" Text="{Binding DoneReceivedText}" />
+              <Border Background="{StaticResource TurquoiseSoftBrush}" CornerRadius="8" Padding="16,10">
+                <StackPanel>
+                  <TextBlock Text="MONNAIE À RENDRE" FontWeight="SemiBold" />
+                  <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Right" Height="62">
+                    <TextBlock x:Name="DoneChangeLabel" Classes="huge" Text="{Binding DoneChangeText}" />
+                  </Viewbox>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+
+            <Border Classes="warning" IsVisible="{Binding IsDoneUnpaid}">
+              <StackPanel Spacing="2">
+                <TextBlock x:Name="DoneUnpaidLabel" Text="IMPAYÉ" FontSize="34" FontWeight="Bold" />
+                <TextBlock x:Name="DoneCustomerLabel" Text="{Binding DoneCustomerText}" FontSize="18" FontWeight="SemiBold"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="Rien n'a été encaissé." />
+              </StackPanel>
+            </Border>
+
+            <Border Background="{StaticResource TurquoiseSoftBrush}" CornerRadius="8" Padding="16,10" IsVisible="{Binding IsDoneCard}">
+              <TextBlock x:Name="DoneCardLabel" Text="TPE — paiement accepté" FontSize="20" FontWeight="SemiBold" />
+            </Border>
+
+            <Button x:Name="NextSaleButton" Classes="primary step" Content="Vente suivante (Entrée)"
+                    Command="{Binding StartNextSaleCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Border>
+  </Grid>
 </UserControl>
