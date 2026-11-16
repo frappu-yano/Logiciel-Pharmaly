@@ -37,7 +37,7 @@ public sealed partial class SalesView : UserControl, IModuleView
             PointerReleasedEvent,
             (_, _) =>
             {
-                if (ViewModel is { IsHistory: false })
+                if (ViewModel is { IsHistory: false, IsReturns: false })
                 {
                     FocusAfterLayout();
                 }
@@ -94,6 +94,12 @@ public sealed partial class SalesView : UserControl, IModuleView
         if (viewModel.IsHistory)
         {
             HistoryView.FocusDefault();
+            return;
+        }
+
+        if (viewModel.IsReturns)
+        {
+            ReturnsView.FocusDefault();
             return;
         }
 
@@ -159,6 +165,15 @@ public sealed partial class SalesView : UserControl, IModuleView
                 await HandleHistoryKeyAsync(viewModel, e);
                 break;
 
+            case SalesScreen.Returns:
+                if (!await ReturnsView.HandleKeyAsync(e))
+                {
+                    e.Handled = true;
+                    await viewModel.CloseReturnsAsync();
+                }
+
+                break;
+
             case SalesScreen.Cart when viewModel.IsStepOpen:
                 await HandleStepKeyAsync(viewModel, e);
                 break;
@@ -184,6 +199,15 @@ public sealed partial class SalesView : UserControl, IModuleView
             case Key.H when IsControl(e):
                 e.Handled = true;
                 await viewModel.OpenHistoryAsync();
+                break;
+
+            case SalesShortcuts.ReturnsKey when IsControl(e):
+                e.Handled = true;
+                if (!viewModel.IsConfirmingOpening)
+                {
+                    await viewModel.OpenReturnsAsync();
+                }
+
                 break;
 
             case Key.Enter:
@@ -268,6 +292,11 @@ public sealed partial class SalesView : UserControl, IModuleView
             case Key.H when IsControl(e):
                 e.Handled = true;
                 await viewModel.OpenHistoryAsync();
+                break;
+
+            case SalesShortcuts.ReturnsKey when IsControl(e):
+                e.Handled = true;
+                await viewModel.OpenReturnsAsync();
                 break;
 
             case Key.Enter:

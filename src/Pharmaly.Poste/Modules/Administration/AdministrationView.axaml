@@ -6,6 +6,18 @@
   <Grid>
     <DockPanel Margin="20,16,20,16" IsEnabled="{Binding !IsConfirming}">
 
+      <!-- Onglets -->
+      <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
+        <Button x:Name="EmployeesTabButton" Classes="nav" Classes.current="{Binding IsEmployeesTab}" Focusable="False"
+                Command="{Binding ShowTabCommand}" CommandParameter="{x:Static local:AdministrationTab.Employees}">
+          <TextBlock Text="Employés et droits (Ctrl+E)" />
+        </Button>
+        <Button x:Name="ReturnReasonsTabButton" Classes="nav" Classes.current="{Binding IsReturnReasonsTab}" Focusable="False"
+                Command="{Binding ShowTabCommand}" CommandParameter="{x:Static local:AdministrationTab.ReturnReasons}">
+          <TextBlock Text="Motifs de retour (Ctrl+M)" />
+        </Button>
+      </StackPanel>
+
       <!-- Réponse du serveur : refus (tel que le serveur le formule) ou confirmation -->
       <Border DockPanel.Dock="Bottom" Classes="message error" Margin="0,12,0,0"
               IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
@@ -16,7 +28,11 @@
         <TextBlock x:Name="InfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
       </Border>
 
-    <Grid ColumnDefinitions="330,*" ColumnSpacing="16">
+    <Grid>
+    <Border IsVisible="{Binding IsReturnReasonsTab}">
+      <local:ReturnReasonsView x:Name="ReturnReasonsView" DataContext="{Binding ReturnReasons}" />
+    </Border>
+    <Grid x:Name="EmployeesPanel" ColumnDefinitions="330,*" ColumnSpacing="16" IsVisible="{Binding IsEmployeesTab}">
 
       <!-- Employés -->
       <Grid RowDefinitions="*,Auto" RowSpacing="12">
@@ -142,6 +158,7 @@
           </DockPanel>
         </Grid>
       </Border>
+    </Grid>
     </Grid>
     </DockPanel>
 

@@ -1,0 +1,472 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Pharmaly.Poste.Modules.Sales"
+             x:Class="Pharmaly.Poste.Modules.Sales.ReturnsView"
+             x:DataType="local:ReturnsViewModel"
+             Focusable="True">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.number">
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontFeatures" Value="tnum" />
+    </Style>
+    <Style Selector="TextBlock.stepTitle">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.stepError">
+      <Setter Property="Foreground" Value="#9A2B12" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.huge">
+      <Setter Property="FontSize" Value="46" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="FontFeatures" Value="tnum" />
+    </Style>
+    <Style Selector="TextBlock.alert">
+      <Setter Property="Foreground" Value="#9A2B12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.step">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="MinHeight" Value="46" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.side">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Border.warning">
+      <Setter Property="Background" Value="{StaticResource PeachSoftBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource PeachBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="14,12" />
+    </Style>
+    <Style Selector="Border.zone">
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+    </Style>
+    <Style Selector="Border.zone.current">
+      <Setter Property="BorderBrush" Value="{StaticResource TurquoiseBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="TextBox.quantity">
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBox.quantity.invalid">
+      <Setter Property="BorderBrush" Value="{StaticResource PeachBrush}" />
+      <Setter Property="Background" Value="{StaticResource PeachSoftBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid>
+    <!-- ==================== Saisie d'un retour ==================== -->
+    <DockPanel x:Name="ReturnEntryPanel" Margin="16,12" IsVisible="{Binding !IsHistoryShown}">
+
+      <!-- Recherche du ticket -->
+      <Border DockPanel.Dock="Top" Classes="card" Padding="14,10" Margin="0,0,0,10">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="Retours clients" FontWeight="Bold" FontSize="18" />
+            <TextBlock Classes="label" Text="Remboursement calculé par le serveur" FontSize="12" />
+          </StackPanel>
+          <TextBox Grid.Column="1" x:Name="TicketBox" Text="{Binding TicketQuery}" FontSize="18" Padding="12,9"
+                   IsEnabled="{Binding IsSearch}"
+                   PlaceholderText="Scanner le code-barres du ticket, ou saisir son numéro puis Entrée" />
+          <Button Grid.Column="2" x:Name="ReturnsHistoryButton" Classes="quiet side" Command="{Binding ShowHistoryCommand}"
+                  VerticalAlignment="Center">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+              <Border Classes="key"><TextBlock Text="Ctrl+H" FontSize="12" FontWeight="SemiBold" /></Border>
+              <TextBlock Grid.Column="1" Text="Historique des retours" VerticalAlignment="Center" />
+            </Grid>
+          </Button>
+        </Grid>
+      </Border>
+
+      <!-- Messages et aide -->
+      <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,10,0,0">
+        <Border Classes="message error"
+                IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock x:Name="ReturnStepErrorLabel" Text="{Binding StepError}" TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
+        <Border Classes="message error"
+                IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock x:Name="ReturnErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
+        <Border Classes="message info"
+                IsVisible="{Binding InfoMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock x:Name="ReturnInfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
+        <TextBlock Classes="label" TextWrapping="Wrap" IsVisible="{Binding IsSearch}"
+                   Text="Entrée : chercher le ticket · Ctrl+H : historique des retours · Échap : effacer, puis retour à la vente" />
+        <TextBlock Classes="label" TextWrapping="Wrap" IsVisible="{Binding IsChoosing}"
+                   Text="↑ ↓ : ligne ou motif · Entrée : valider et passer à la suite · Tab : zone suivante · 1 à 9 : motif · Échap : revenir (abandon du ticket depuis les quantités)" />
+      </StackPanel>
+
+      <Grid ColumnDefinitions="*,320" ColumnSpacing="14">
+
+        <!-- Ticket et lignes -->
+        <Border Classes="card" Padding="0" ClipToBounds="True">
+          <Grid>
+            <StackPanel IsVisible="{Binding !HasTicket}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
+                        Margin="20">
+              <TextBlock Classes="emptyState" Text="Scannez le ticket rapporté par le client" HorizontalAlignment="Center" />
+              <TextBlock Classes="label" TextWrapping="Wrap" TextAlignment="Center"
+                         Text="Le ticket indique ce qui reste retournable, ligne par ligne." />
+            </StackPanel>
+
+            <DockPanel IsVisible="{Binding HasTicket}">
+              <!-- En-tête du ticket -->
+              <Border DockPanel.Dock="Top" Padding="14,10" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                  <StackPanel Spacing="2">
+                    <TextBlock x:Name="TicketTitleLabel" Text="{Binding TicketTitle}" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock x:Name="TicketInfoLabel" Classes="label" Text="{Binding TicketInfo}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="RefundedLabel" Classes="label" Text="{Binding RefundedText}" IsVisible="{Binding HasRefunded}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                    <TextBlock x:Name="TicketTotalLabel" Classes="number" Text="{Binding TicketTotalText}" FontSize="20" FontWeight="Bold" />
+                    <TextBlock x:Name="TicketPaymentLabel" Text="{Binding TicketPaymentText}" TextAlignment="Right" FontWeight="Medium" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+
+              <!-- Ticket non retournable : la raison du serveur et ce qu'on peut faire -->
+              <Border DockPanel.Dock="Top" x:Name="BlockedPanel" Classes="warning" Margin="12,10,12,0" IsVisible="{Binding IsBlocked}">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="Retour impossible sur ce ticket" FontSize="17" FontWeight="Bold" />
+                  <TextBlock x:Name="BlockedLabel" Text="{Binding BlockedMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+                  <TextBlock x:Name="BlockedHintLabel" Text="{Binding BlockedHint}" TextWrapping="Wrap" IsVisible="{Binding HasBlockedHint}" />
+                  <Button x:Name="OpenSaleInHistoryButton" Classes="quiet side" Command="{Binding OpenSaleInHistoryCommand}"
+                          IsVisible="{Binding CanOpenSaleInHistory}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                      <Border Classes="key"><TextBlock Text="Ctrl+O" FontSize="12" FontWeight="SemiBold" /></Border>
+                      <TextBlock Grid.Column="1" Text="Ouvrir ce ticket dans l'historique des ventes" VerticalAlignment="Center" />
+                    </Grid>
+                  </Button>
+                </StackPanel>
+              </Border>
+
+              <!-- Lignes -->
+              <Border DockPanel.Dock="Top" Padding="12,8" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,50,60,72,96,84" ColumnSpacing="8">
+                  <TextBlock Classes="label" Text="Désignation" />
+                  <TextBlock Grid.Column="1" Classes="label number" Text="Vendu" />
+                  <TextBlock Grid.Column="2" Classes="label number" Text="Déjà ret." />
+                  <TextBlock Grid.Column="3" Classes="label number" Text="Retournable" />
+                  <TextBlock Grid.Column="4" Classes="label number" Text="Payé" />
+                  <TextBlock Grid.Column="5" Classes="label number" Text="Qté rendue" />
+                </Grid>
+              </Border>
+              <Border x:Name="LinesZone" Classes="zone" BorderThickness="0"
+                      Classes.current="{Binding Field, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:ReturnField.Lines}}">
+                <ListBox x:Name="ReturnLinesList" ItemsSource="{Binding Lines}" SelectedItem="{Binding SelectedLine}"
+                         Background="Transparent" Focusable="False">
+                  <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                      <Setter Property="Focusable" Value="False" />
+                      <Setter Property="Padding" Value="12,6" />
+                    </Style>
+                  </ListBox.Styles>
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="local:ReturnLineViewModel">
+                      <Grid ColumnDefinitions="*,50,60,72,96,84" ColumnSpacing="8">
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                   ToolTip.Tip="{Binding Name}" />
+                        <TextBlock Grid.Column="1" Classes="number" Text="{Binding SoldText}" />
+                        <TextBlock Grid.Column="2" Classes="label number" Text="{Binding ReturnedText}" />
+                        <TextBlock Grid.Column="3" Classes="number" Text="{Binding ReturnableText}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="4" Classes="number" Text="{Binding PaidText}" />
+                        <TextBox Grid.Column="5" Classes="quantity" Classes.invalid="{Binding HasError}"
+                                 Text="{Binding QuantityText}" IsEnabled="{Binding IsReturnable}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </Border>
+            </DockPanel>
+          </Grid>
+        </Border>
+
+        <!-- Motif, destination, note -->
+        <DockPanel Grid.Column="1">
+          <Button DockPanel.Dock="Bottom" x:Name="PreviewButton" Classes="primary step" Margin="0,10,0,0"
+                  Command="{Binding RequestPreviewCommand}" IsEnabled="{Binding IsChoosing}"
+                  Content="Voir le remboursement (Entrée)" />
+
+          <Border DockPanel.Dock="Bottom" Classes="card zone" Padding="12,10" Margin="0,10,0,0"
+                  Classes.current="{Binding Field, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:ReturnField.Note}}">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" Text="Note (facultative)" />
+              <TextBox x:Name="NoteBox" Text="{Binding Note}" Padding="10,8" IsEnabled="{Binding IsChoosing}" MaxLength="500" />
+            </StackPanel>
+          </Border>
+
+          <Border DockPanel.Dock="Bottom" x:Name="DestinationPanel" Classes="card" Padding="12,10" Margin="0,10,0,0">
+            <StackPanel Spacing="2">
+              <TextBlock Classes="label" Text="Marchandise rendue" />
+              <TextBlock x:Name="DestinationLabel" Text="{Binding DestinationText}" FontSize="16" FontWeight="Bold"
+                         Classes.alert="{Binding IsNotRestocked}" TextWrapping="Wrap" />
+              <TextBlock x:Name="DestinationHintLabel" Classes="label" Text="{Binding DestinationHint}" TextWrapping="Wrap" FontSize="12" />
+            </StackPanel>
+          </Border>
+
+          <Border x:Name="ReasonZone" Classes="card zone" Padding="0" ClipToBounds="True"
+                  Classes.current="{Binding Field, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:ReturnField.Reason}}">
+            <DockPanel>
+              <Border DockPanel.Dock="Top" Padding="12,8" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Motif du retour (obligatoire)" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Classes="label" Text="↑ ↓ ou 1…9" FontSize="12" VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+              <ListBox x:Name="ReasonList" ItemsSource="{Binding Reasons}" SelectedItem="{Binding SelectedReason}"
+                       Background="Transparent" IsEnabled="{Binding IsChoosing}" Focusable="True">
+                <ListBox.Styles>
+                  <Style Selector="ListBoxItem">
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="Padding" Value="10,6" />
+                  </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="local:ReasonChoiceViewModel">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                      <Border Classes="key" MinWidth="26" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding NumberText}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" />
+                      </Border>
+                      <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Label}" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="label" Classes.alert="{Binding IsNotRestocked}" Text="{Binding DestinationText}"
+                                   FontSize="12" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+          </Border>
+        </DockPanel>
+      </Grid>
+    </DockPanel>
+
+    <!-- ==================== Historique des retours ==================== -->
+    <Border x:Name="ReturnsHistoryPanel" IsVisible="{Binding IsHistoryShown}">
+    <DockPanel Margin="16,12" DataContext="{Binding History}" x:DataType="local:ReturnsHistoryViewModel">
+      <Border DockPanel.Dock="Top" Classes="card" Padding="14,10" Margin="0,0,0,10">
+        <Grid ColumnDefinitions="Auto,Auto,104,Auto,104,*" ColumnSpacing="8">
+          <TextBlock Text="Historique des retours" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <TextBlock Grid.Column="1" Classes="label" Text="du" VerticalAlignment="Center" />
+          <TextBox Grid.Column="2" x:Name="ReturnsFromBox" Text="{Binding FromText}" PlaceholderText="jj/mm/aaaa" Padding="8,8" />
+          <TextBlock Grid.Column="3" Classes="label" Text="au" VerticalAlignment="Center" />
+          <TextBox Grid.Column="4" x:Name="ReturnsToBox" Text="{Binding ToText}" PlaceholderText="jj/mm/aaaa" Padding="8,8" />
+          <TextBox Grid.Column="5" x:Name="ReturnsTicketBox" Text="{Binding TicketQuery}" Padding="10,8"
+                   PlaceholderText="N° de ticket, code-barres ou n° de retour" />
+        </Grid>
+      </Border>
+
+      <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,10,0,0">
+        <Border Classes="message error"
+                IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock x:Name="ReturnsHistoryErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
+        <Border Classes="message info"
+                IsVisible="{Binding InfoMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock x:Name="ReturnsHistoryInfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
+        <TextBlock Classes="label" TextWrapping="Wrap"
+                   Text="Entrée : chercher · ↑ ↓ : retour · Tab : champ suivant · Échap : nouveau retour" />
+      </StackPanel>
+
+      <Grid ColumnDefinitions="*,380" ColumnSpacing="14">
+        <Border Classes="card" Padding="0" ClipToBounds="True">
+          <DockPanel>
+            <Border DockPanel.Dock="Top" Padding="12,8" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+              <Grid ColumnDefinitions="104,96,*,64,104" ColumnSpacing="8">
+                <TextBlock Classes="label" Text="Retour" />
+                <TextBlock Grid.Column="1" Classes="label" Text="Ticket" />
+                <TextBlock Grid.Column="2" Classes="label" Text="Motif" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Moyen" />
+                <TextBlock Grid.Column="4" Classes="label number" Text="Remboursé" />
+              </Grid>
+            </Border>
+            <ListBox x:Name="ReturnsList" ItemsSource="{Binding Returns}" SelectedItem="{Binding SelectedReturn}"
+                     Background="Transparent" Focusable="False">
+              <ListBox.Styles>
+                <Style Selector="ListBoxItem">
+                  <Setter Property="Focusable" Value="False" />
+                  <Setter Property="Padding" Value="12,8" />
+                </Style>
+              </ListBox.Styles>
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:ReturnRowViewModel">
+                  <Grid ColumnDefinitions="104,96,*,64,104" ColumnSpacing="8">
+                    <StackPanel>
+                      <TextBlock Text="{Binding ReturnNumber}" FontWeight="SemiBold" />
+                      <TextBlock Classes="label" Text="{Binding DateText}" FontSize="11" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding TicketNumber}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding ReasonLabel}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="3" Text="{Binding MethodText}" VerticalAlignment="Center" FontSize="13" />
+                    <TextBlock Grid.Column="4" Classes="number" Text="{Binding RefundText}" FontWeight="SemiBold" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+
+        <Border Grid.Column="1" Classes="card" Padding="0">
+          <Grid>
+            <TextBlock Classes="emptyState" Text="Aucun retour sélectionné" IsVisible="{Binding !HasDetail}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <Border IsVisible="{Binding HasDetail}">
+            <DockPanel DataContext="{Binding Detail}" x:DataType="local:ReturnDetailViewModel">
+              <Border DockPanel.Dock="Top" Padding="14,10" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                <StackPanel Spacing="2">
+                  <TextBlock x:Name="ReturnDetailTitleLabel" Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" />
+                  <TextBlock Classes="label" Text="{Binding Subtitle}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+              <Border DockPanel.Dock="Bottom" Padding="14,10" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0">
+                <StackPanel Spacing="4">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Remboursé" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" x:Name="ReturnDetailRefundLabel" Classes="number" Text="{Binding RefundText}"
+                               FontSize="22" FontWeight="Bold" />
+                  </Grid>
+                  <TextBlock Text="{Binding MethodText}" TextWrapping="Wrap" FontWeight="Medium" />
+                </StackPanel>
+              </Border>
+              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="14,8" Spacing="6">
+                  <TextBlock Text="{Binding ReasonText}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                  <TextBlock x:Name="ReturnDetailDestinationLabel" Text="{Binding DestinationText}" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding NoteText}" TextWrapping="Wrap" IsVisible="{Binding HasNote}" Classes="label" />
+                  <ItemsControl ItemsSource="{Binding Lines}" Margin="0,6,0,0">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="x:String">
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,3" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </ScrollViewer>
+            </DockPanel>
+            </Border>
+          </Grid>
+        </Border>
+      </Grid>
+    </DockPanel>
+    </Border>
+
+    <!-- ==================== Étapes : confirmation, non confirmé, fin ==================== -->
+    <Border x:Name="ReturnStepOverlay" Background="#99111111" IsVisible="{Binding IsStepOpen}" ZIndex="10">
+      <Border Classes="card" Width="600" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid>
+
+          <!-- Aperçu et confirmation -->
+          <StackPanel x:Name="ReturnConfirmPanel" Spacing="10"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:ReturnStep.Confirm}}">
+            <TextBlock Classes="stepTitle" Text="Confirmer le retour" />
+            <TextBlock x:Name="PreviewTitleLabel" Text="{Binding PreviewTitle}" TextWrapping="Wrap" FontWeight="Medium" />
+            <Border Classes="warning" IsVisible="{Binding RefundChangedMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+              <TextBlock x:Name="RefundChangedLabel" Text="{Binding RefundChangedMessage}" TextWrapping="Wrap" FontWeight="SemiBold" />
+            </Border>
+            <ItemsControl ItemsSource="{Binding PreviewLines}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                  <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock TextWrapping="Wrap">
+              <Run Text="Marchandise : " /><Run x:Name="PreviewDestinationRun" Text="{Binding PreviewDestinationText}" FontWeight="SemiBold" />
+            </TextBlock>
+            <Border Background="{StaticResource TurquoiseSoftBrush}" CornerRadius="8" Padding="16,10">
+              <StackPanel>
+                <TextBlock Text="MONTANT REMBOURSÉ" FontWeight="SemiBold" />
+                <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Right" Height="62">
+                  <TextBlock x:Name="PreviewRefundLabel" Classes="huge" Text="{Binding PreviewRefundText}" />
+                </Viewbox>
+                <TextBlock x:Name="PreviewMethodLabel" Text="{Binding PreviewMethodText}" FontWeight="SemiBold" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <TextBlock Classes="stepError" Text="{Binding StepError}"
+                       IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Modifier (Échap)" Command="{Binding BackCommand}" />
+              <Button Grid.Column="1" x:Name="ConfirmReturnButton" Classes="primary step" Content="Enregistrer le retour (Entrée)"
+                      Command="{Binding ConfirmCommand}" />
+            </Grid>
+            <TextBlock Classes="label" TextWrapping="Wrap"
+                       Text="Rien n'est encore enregistré. Ne rendez l'argent qu'après l'écran « Retour enregistré »." />
+          </StackPanel>
+
+          <!-- Retour non confirmé -->
+          <StackPanel x:Name="ReturnUnconfirmedPanel" Spacing="14"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:ReturnStep.Unconfirmed}}">
+            <Border Classes="warning">
+              <TextBlock x:Name="ReturnUnconfirmedLabel" Text="{x:Static local:ReturnsViewModel.UnconfirmedTitle}" FontSize="22"
+                         FontWeight="Bold" TextWrapping="Wrap" />
+            </Border>
+            <TextBlock TextWrapping="Wrap"
+                       Text="Le serveur n'a pas répondu : on ne sait pas si le retour est enregistré. Ne rendez rien au client pour l'instant." />
+            <TextBlock TextWrapping="Wrap"
+                       Text="Réessayez : c'est le même retour qui est renvoyé, il ne sera jamais enregistré deux fois. Si le serveur reste injoignable, prévenez un responsable." />
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Button x:Name="RetryReturnButton" Classes="primary step" Content="Réessayer (Entrée)" Command="{Binding RetryCommand}" />
+          </StackPanel>
+
+          <!-- Retour enregistré -->
+          <StackPanel x:Name="ReturnDonePanel" Spacing="10"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:ReturnStep.Done}}">
+            <Border Background="{StaticResource TurquoiseBrush}" CornerRadius="8" Padding="16,10">
+              <StackPanel>
+                <TextBlock Text="Retour enregistré" FontSize="22" FontWeight="Bold" />
+                <TextBlock x:Name="ReturnDoneNumberLabel" Text="{Binding DoneNumberText}" FontSize="16" FontWeight="SemiBold" />
+              </StackPanel>
+            </Border>
+            <TextBlock TextWrapping="Wrap">
+              <Run Text="Marchandise : " /><Run Text="{Binding DoneDestinationText}" FontWeight="SemiBold" />
+            </TextBlock>
+
+            <Border Background="{StaticResource TurquoiseSoftBrush}" CornerRadius="8" Padding="16,10" IsVisible="{Binding IsDoneCash}">
+              <StackPanel>
+                <TextBlock Text="À RENDRE EN ESPÈCES" FontWeight="SemiBold" />
+                <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Right" Height="62">
+                  <TextBlock x:Name="ReturnDoneCashLabel" Classes="huge" Text="{Binding DoneRefundText}" />
+                </Viewbox>
+                <TextBlock Text="Sortie de la caisse de ce poste." Classes="label" />
+              </StackPanel>
+            </Border>
+
+            <Border Background="{StaticResource TurquoiseSoftBrush}" CornerRadius="8" Padding="16,10" IsVisible="{Binding IsDoneCard}">
+              <StackPanel Spacing="2">
+                <TextBlock Text="REMBOURSEMENT PAR CARTE" FontWeight="SemiBold" />
+                <TextBlock x:Name="ReturnDoneCardLabel" Text="{Binding DoneRefundText}" FontSize="30" FontWeight="Bold" />
+                <TextBlock Text="À faire sur le terminal de paiement. Aucune espèce ne sort de la caisse." TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+
+            <Border Classes="warning" IsVisible="{Binding IsDoneWithoutRefund}">
+              <TextBlock Text="Rien à rembourser sur ce retour." FontWeight="SemiBold" />
+            </Border>
+
+            <Button x:Name="NextReturnButton" Classes="primary step" Content="Retour suivant (Entrée)"
+                    Command="{Binding StartNextReturnCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Border>
+  </Grid>
+</UserControl>

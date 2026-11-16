@@ -30,6 +30,18 @@ public static class SalesShortcuts
     /// <summary>Confirmation forte de l'annulation d'une vente : jamais Entrée.</summary>
     public const Key CancelSaleConfirmKey = Key.F9;
 
+    /// <summary>Retours clients : Ctrl+R, depuis la vente, la caisse fermée ou le détail d'un ticket de l'historique.</summary>
+    public const Key ReturnsKey = Key.R;
+
+    public const string ReturnsLabel = "Ctrl+R";
+
+    /// <summary>Depuis les retours : ouvrir le ticket affiché dans l'historique des ventes.</summary>
+    public const Key OpenSaleInHistoryKey = Key.O;
+
+    public const string OpenSaleInHistoryLabel = "Ctrl+O";
+
+    public static bool IsReturns(KeyEventArgs e) => e.Key == ReturnsKey && e.KeyModifiers == KeyModifiers.Control;
+
     public static string CardLabel => ProvisionalCardKey.ToString();
 
     public static string UnpaidLabel => UnpaidKey.ToString();
@@ -58,9 +70,10 @@ public sealed record SalesRights(
     bool CanDiscount,
     bool CanViewHistory,
     bool CanCancel,
-    bool CanOpenRegister)
+    bool CanOpenRegister,
+    bool CanReturn)
 {
-    public static readonly SalesRights All = new(true, true, true, true, true, true);
+    public static readonly SalesRights All = new(true, true, true, true, true, true, true);
 
     public static SalesRights From(SessionViewModel session) => From(session.HasPermission);
 
@@ -70,23 +83,31 @@ public sealed record SalesRights(
         hasPermission(Permissions.DiscountsApply),
         hasPermission(Permissions.SalesHistoryView),
         hasPermission(Permissions.SalesCancel),
-        hasPermission(Permissions.RegisterOpen));
+        hasPermission(Permissions.RegisterOpen),
+        hasPermission(Permissions.ReturnsCreate));
 }
 
 /// <summary>
-/// Point d'accroche de l'impression : appelé une fois pour chaque vente enregistrée, avec le
-/// détail du ticket renvoyé par le serveur. L'impression n'existe pas encore.
-/// Une implémentation ne doit jamais lever d'exception : la vente est déjà enregistrée.
+/// Point d'accroche de l'impression : appelé une fois pour chaque vente et pour chaque retour
+/// enregistrés, avec le détail renvoyé par le serveur. L'impression n'existe pas encore.
+/// Une implémentation ne doit jamais lever d'exception : l'opération est déjà enregistrée.
 /// </summary>
 public interface ITicketPrinter
 {
     void Print(SaleDetail ticket);
+
+    /// <summary>Bon de retour, à remettre au client avec son remboursement.</summary>
+    void PrintReturn(ReturnDetail receipt);
 }
 
 /// <summary>Aucune imprimante : rien n'est imprimé, rien n'est affiché.</summary>
 public sealed class NoTicketPrinter : ITicketPrinter
 {
     public void Print(SaleDetail ticket)
+    {
+    }
+
+    public void PrintReturn(ReturnDetail receipt)
     {
     }
 }
@@ -199,6 +220,33 @@ public static class SaleFormat
         SalePaymentModes.Card => "TPE",
         SalePaymentModes.Unpaid => "Impayé",
         _ => mode,
+    };
+
+    /// <summary>Où va la marchandise rendue, selon la destination portée par le motif.</summary>
+    public static string StockDestination(string destination) => destination switch
+    {
+        ReturnStockDestinations.Sellable => "Remise en stock vendable",
+        ReturnStockDestinations.SetAside => "Mise à l'écart (emplacement « mis à l'écart »)",
+        ReturnStockDestinations.None => "Pas de remise en stock",
+        _ => destination,
+    };
+
+    /// <summary>Explication affichée sous la destination du motif choisi.</summary>
+    public static string StockDestinationHint(string destination) => destination switch
+    {
+        ReturnStockDestinations.Sellable => "La marchandise rendue retourne dans le stock vendable du magasin.",
+        ReturnStockDestinations.SetAside => "La marchandise rendue est rangée à part : elle ne peut pas être revendue.",
+        ReturnStockDestinations.None => "La marchandise rendue sort du circuit : aucun stock n'est réintégré.",
+        _ => string.Empty,
+    };
+
+    /// <summary>Comment le client est remboursé.</summary>
+    public static string RefundMethod(string? method) => method switch
+    {
+        PaymentMethods.Cash => "En espèces — sortie de la caisse de ce poste",
+        PaymentMethods.Card => "Par carte, sur le terminal — aucune sortie d'espèces",
+        null => "Rien à rembourser",
+        _ => method,
     };
 
     public static string Status(string status) => status switch

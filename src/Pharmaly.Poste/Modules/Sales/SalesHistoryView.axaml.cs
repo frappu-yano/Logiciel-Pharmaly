@@ -97,6 +97,11 @@ public sealed partial class SalesHistoryView : UserControl
                         e.Handled = true;
                         viewModel.BeginCardAnswer();
                         break;
+
+                    case SalesShortcuts.ReturnsKey when control:
+                        e.Handled = true;
+                        await viewModel.BeginReturnAsync();
+                        break;
                 }
 
                 break;

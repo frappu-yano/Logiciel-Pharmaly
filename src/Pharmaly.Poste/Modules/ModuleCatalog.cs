@@ -60,7 +60,7 @@ public static class ModuleCatalog
             ],
             context => new SalesViewModel(
                 context.Clients.Sales, context.Clients.Customers, context.Clients.CashSession, context.Clients.Catalog,
-                SalesRights.From(context.Session), context.SearchDelay, new NoTicketPrinter()),
+                context.Clients.Returns, SalesRights.From(context.Session), context.SearchDelay, new NoTicketPrinter()),
             () => new SalesView()),
 
         new(ModuleKeys.SupplierNotes, "Bons fournisseurs",
@@ -91,7 +91,7 @@ public static class ModuleCatalog
 
         new(ModuleKeys.Administration, "Administration",
             [Permissions.UsersAdminister],
-            context => new AdministrationViewModel(context.Clients.Admin, context.Session.EmployeeId),
+            context => new AdministrationViewModel(context.Clients.Admin, context.Clients.Returns, context.Session.EmployeeId),
             () => new AdministrationView()),
 
         // L'écran d'essai cherche dans le catalogue : il demande le droit de consulter les produits.

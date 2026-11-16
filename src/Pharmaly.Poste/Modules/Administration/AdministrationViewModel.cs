@@ -29,14 +29,58 @@ public sealed class EmployeeRowViewModel(EmployeeSummary employee, bool isSelf)
 /// <summary>Opération critique en attente de confirmation.</summary>
 public sealed record ConfirmationViewModel(string Message, string ConfirmLabel, Func<Task> Action);
 
+/// <summary>Onglet affiché par le module Administration.</summary>
+public enum AdministrationTab
+{
+    /// <summary>Employés et droits.</summary>
+    Employees,
+
+    /// <summary>Motifs de retour (D36).</summary>
+    ReturnReasons,
+}
+
 /// <summary>
-/// Module Administration : employés et droits. Le poste n'applique aucune règle : il envoie
-/// la demande et affiche la réponse du serveur.
+/// Module Administration : employés et droits, motifs de retour. Le poste n'applique aucune
+/// règle : il envoie la demande et affiche la réponse du serveur.
 /// </summary>
-public sealed partial class AdministrationViewModel(IAdminClient admin, Guid currentEmployeeId) : ModuleViewModel
+public sealed partial class AdministrationViewModel : ModuleViewModel
 {
     public const string SelfExplanation =
         "Vous ne pouvez ni modifier vos propres droits ni désactiver votre compte : demandez à un autre administrateur.";
+
+    private readonly IAdminClient admin;
+    private readonly Guid currentEmployeeId;
+
+    public AdministrationViewModel(IAdminClient admin, IReturnsClient returns, Guid currentEmployeeId)
+    {
+        this.admin = admin;
+        this.currentEmployeeId = currentEmployeeId;
+        ReturnReasons = new ReturnReasonsViewModel(returns, RequireIdentificationIfLost);
+    }
+
+    /// <summary>Onglet « motifs de retour ».</summary>
+    public ReturnReasonsViewModel ReturnReasons { get; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEmployeesTab), nameof(IsReturnReasonsTab))]
+    private AdministrationTab tab;
+
+    public bool IsEmployeesTab => Tab == AdministrationTab.Employees;
+
+    public bool IsReturnReasonsTab => Tab == AdministrationTab.ReturnReasons;
+
+    /// <summary>Change d'onglet et lit ce qu'il affiche. Sans effet pendant une confirmation.</summary>
+    [RelayCommand]
+    public async Task ShowTabAsync(AdministrationTab target)
+    {
+        if (IsConfirming || ReturnReasons.IsConfirming || Tab == target)
+        {
+            return;
+        }
+
+        Tab = target;
+        await ActivateAsync();
+    }
 
     private IReadOnlyList<ScopeChoice> storeScopes = [];
 
@@ -90,7 +134,8 @@ public sealed partial class AdministrationViewModel(IAdminClient admin, Guid cur
 
     public string ToggleStateLabel => SelectedEmployee is { IsActive: false } ? "Réactiver l'employé" : "Désactiver l'employé";
 
-    public override Task ActivateAsync() => ReloadAsync(SelectedEmployee?.Id);
+    public override Task ActivateAsync() =>
+        Tab == AdministrationTab.ReturnReasons ? ReturnReasons.LoadAsync() : ReloadAsync(SelectedEmployee?.Id);
 
     partial void OnSelectedEmployeeChanged(EmployeeRowViewModel? value)
     {

@@ -33,7 +33,7 @@ internal sealed partial class FakeServer
     public ServerClients Clients => new()
     {
         Access = this, Catalog = this, Admin = this, Stock = this, SupplierNotes = this,
-        Sales = this, Customers = this, CashSession = this,
+        Sales = this, Customers = this, CashSession = this, Returns = this,
     };
 
     /// <summary>L'employé de test possède tous les droits.</summary>

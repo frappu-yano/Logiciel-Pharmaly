@@ -23,6 +23,9 @@ public enum SalesScreen
 
     /// <summary>Historique des ventes du site.</summary>
     History,
+
+    /// <summary>Retours clients (et leur historique).</summary>
+    Returns,
 }
 
 /// <summary>Étape affichée par-dessus le panier. Tant qu'une étape est ouverte, le panier est figé.</summary>
@@ -80,7 +83,8 @@ public sealed partial class SalesViewModel : ModuleViewModel
 {
     public const string CashClosedTitle = "La caisse n'est pas ouverte";
     public const string CashClosedWithoutRight = "Un employé habilité à ouvrir la caisse doit l'ouvrir avant toute vente.";
-    public const string NoRightMessage = "Vos droits ne permettent ni de vendre ni de consulter l'historique des ventes.";
+    public const string NoRightMessage =
+        "Vos droits ne permettent ni de vendre, ni de faire un retour, ni de consulter l'historique des ventes.";
 
     /// <summary>Affiché en permanence dans l'aide du panier : le verrouillage détruit le module.</summary>
     public const string LockWarning = "F12 (verrouillage) : le panier en cours est perdu.";
@@ -104,6 +108,7 @@ public sealed partial class SalesViewModel : ModuleViewModel
         ICustomersClient customers,
         ICashSessionClient cash,
         ICatalogClient catalog,
+        IReturnsClient returns,
         SalesRights rights,
         TimeSpan searchDelay,
         ITicketPrinter? printer = null)
@@ -115,7 +120,11 @@ public sealed partial class SalesViewModel : ModuleViewModel
         this.searchDelay = searchDelay;
         this.printer = printer ?? new NoTicketPrinter();
         Rights = rights;
-        History = new SalesHistoryViewModel(sales, rights, RequireIdentificationIfLost);
+        History = new SalesHistoryViewModel(sales, rights, RequireIdentificationIfLost) { OpenReturn = OpenReturnForTicketAsync };
+        Returns = new ReturnsViewModel(returns, sales, rights, RequireIdentificationIfLost, this.printer)
+        {
+            OpenSaleInHistory = OpenSaleInHistoryAsync,
+        };
         Results.CollectionChanged += (_, _) => HasResults = Results.Count > 0;
         CustomerResults.CollectionChanged += (_, _) => HasCustomerResults = CustomerResults.Count > 0;
     }
@@ -124,6 +133,12 @@ public sealed partial class SalesViewModel : ModuleViewModel
 
     /// <summary>Sous-écran « historique et annulation ».</summary>
     public SalesHistoryViewModel History { get; }
+
+    /// <summary>Sous-écran « retours clients ».</summary>
+    public ReturnsViewModel Returns { get; }
+
+    /// <summary>Touche des retours, affichée à l'écran.</summary>
+    public string ReturnsKeyLabel => SalesShortcuts.ReturnsLabel;
 
     /// <summary>Touche Espèces affichée à l'écran : <c>*</c>, confirmée par la direction.</summary>
     public string CashKeyLabel => SalesShortcuts.CashSymbol;
@@ -151,6 +166,9 @@ public sealed partial class SalesViewModel : ModuleViewModel
 
     public bool CanViewHistory => Rights.CanViewHistory;
 
+    /// <summary>La touche des retours n'apparaît qu'avec le droit « effectuer un retour ».</summary>
+    public bool CanReturn => Rights.CanReturn;
+
     public bool CanOpenRegister => Rights.CanOpenRegister;
 
     public bool CannotOpenRegister => !Rights.CanOpenRegister;
@@ -159,7 +177,7 @@ public sealed partial class SalesViewModel : ModuleViewModel
     public bool CanSell => Rights.CanSell;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsLoading), nameof(IsNoRight), nameof(IsCashClosed), nameof(IsCart), nameof(IsHistory), nameof(IsCartEditable))]
+    [NotifyPropertyChangedFor(nameof(IsLoading), nameof(IsNoRight), nameof(IsCashClosed), nameof(IsCart), nameof(IsHistory), nameof(IsReturns), nameof(IsCartEditable))]
     private SalesScreen screen = SalesScreen.Loading;
 
     public bool IsLoading => Screen == SalesScreen.Loading;
@@ -171,6 +189,8 @@ public sealed partial class SalesViewModel : ModuleViewModel
     public bool IsCart => Screen == SalesScreen.Cart;
 
     public bool IsHistory => Screen == SalesScreen.History;
+
+    public bool IsReturns => Screen == SalesScreen.Returns;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStepOpen), nameof(IsCartEditable))]
@@ -223,12 +243,23 @@ public sealed partial class SalesViewModel : ModuleViewModel
 
     public override async Task ActivateAsync()
     {
+        if (Screen == SalesScreen.Returns)
+        {
+            await Returns.ActivateAsync();
+            return;
+        }
+
         if (!Rights.CanSell)
         {
             if (Rights.CanViewHistory)
             {
                 Screen = SalesScreen.History;
                 await History.ActivateAsync();
+            }
+            else if (Rights.CanReturn)
+            {
+                Screen = SalesScreen.Returns;
+                await Returns.ActivateAsync();
             }
             else
             {
@@ -376,6 +407,72 @@ public sealed partial class SalesViewModel : ModuleViewModel
 
         Screen = CashSession is null ? SalesScreen.Loading : SalesScreen.Cart;
         await RefreshCashSessionAsync();
+    }
+
+    // ---------- Retours ----------
+
+    /// <summary>
+    /// Touche des retours : ouvre l'écran des retours clients. Le panier en cours est conservé
+    /// (il ne se modifie pas pendant ce temps) ; aucun encaissement ne doit être en cours.
+    /// </summary>
+    [RelayCommand]
+    public async Task OpenReturnsAsync()
+    {
+        if (!Rights.CanReturn || Step != CheckoutStep.None || IsSending || Screen is SalesScreen.Returns or SalesScreen.NoRight
+            || (Screen == SalesScreen.History && History.IsStepOpen))
+        {
+            return;
+        }
+
+        ClearMessages();
+        Screen = SalesScreen.Returns;
+        await Returns.ActivateAsync();
+    }
+
+    /// <summary>Échap sur les retours (sans retour en cours) : retour à la vente, ou à l'historique sans le droit de vendre.</summary>
+    [RelayCommand]
+    public async Task CloseReturnsAsync()
+    {
+        if (Screen != SalesScreen.Returns || Returns.IsStepOpen || Returns.IsSending)
+        {
+            return;
+        }
+
+        if (Rights.CanSell)
+        {
+            Screen = CashSession is null ? SalesScreen.Loading : SalesScreen.Cart;
+            await RefreshCashSessionAsync();
+        }
+        else if (Rights.CanViewHistory)
+        {
+            Screen = SalesScreen.History;
+            await History.ActivateAsync();
+        }
+    }
+
+    /// <summary>« Retour sur ce ticket » depuis le détail d'un ticket de l'historique.</summary>
+    private async Task OpenReturnForTicketAsync(SaleDetail ticket)
+    {
+        if (!Rights.CanReturn || Screen != SalesScreen.History || History.IsStepOpen)
+        {
+            return;
+        }
+
+        Screen = SalesScreen.Returns;
+        await Returns.ActivateAsync();
+        await Returns.OpenTicketAsync(ticket.TicketNumber);
+    }
+
+    /// <summary>Depuis un ticket non retournable : l'ouvrir dans l'historique des ventes, pour l'annuler ou répondre au TPE.</summary>
+    private async Task OpenSaleInHistoryAsync(string ticketNumber)
+    {
+        if (!Rights.CanViewHistory || Screen != SalesScreen.Returns)
+        {
+            return;
+        }
+
+        Screen = SalesScreen.History;
+        await History.ShowTicketAsync(ticketNumber);
     }
 
     private void ClearMessages()
