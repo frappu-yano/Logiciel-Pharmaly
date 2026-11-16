@@ -790,7 +790,7 @@ public sealed class CashViewModelTests
         Assert.Equal("11 500,00 DA", lines["Règlements d'impayés en espèces"]);
         Assert.Equal("0,00 DA", lines["Règlements d'impayés par TPE"]);
         Assert.Equal("0,00 DA", lines["Entrées d'espèces"]);
-        Assert.Equal("− 0,00 DA", lines["Sorties d'espèces"]);
+        Assert.Equal("0,00 DA", lines["Sorties d'espèces"]);
         Assert.True(lines.ContainsKey("Remboursements en espèces"));
         Assert.Equal("24 500,00 DA", viewModel.ExpectedCashText);
         Assert.False(viewModel.HasPendingCard);

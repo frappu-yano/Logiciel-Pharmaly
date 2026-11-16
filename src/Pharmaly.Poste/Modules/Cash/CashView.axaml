@@ -167,7 +167,7 @@
 
         <!-- Recherche et filtres -->
         <Border DockPanel.Dock="Top" Classes="card" Padding="12,8" Margin="0,0,0,8">
-          <Grid ColumnDefinitions="*,Auto,Auto,Auto,96,Auto,96" ColumnSpacing="8">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto,112,Auto,112" ColumnSpacing="8">
             <TextBox x:Name="SearchBox" Text="{Binding SearchText}" FontSize="16" Padding="10,8"
                      PlaceholderText="Scanner le ticket, n° de ticket ou nom du client, puis Entrée" />
             <Border Grid.Column="1" x:Name="CustomerFilterChip" Classes="state active" Padding="10,2,2,2"

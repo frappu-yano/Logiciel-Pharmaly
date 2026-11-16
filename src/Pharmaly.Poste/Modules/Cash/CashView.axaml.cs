@@ -30,6 +30,23 @@ public sealed partial class CashView : UserControl, IModuleView
             },
             RoutingStrategies.Bubble,
             handledEventsToo: true);
+
+        // Le « * » du clavier principal n'arrive pas toujours avec son symbole dans la touche
+        // (X11, certaines dispositions) : il est alors reconnu au texte saisi, avant la recherche.
+        AddHandler(TextInputEvent, OnTextInput, RoutingStrategies.Tunnel);
+    }
+
+    private void OnTextInput(object? sender, TextInputEventArgs e)
+    {
+        if (e.Text != CashShortcuts.CashLabel || ViewModel is not { IsReceivablesTab: true, IsSessionStepOpen: false } viewModel
+            || !viewModel.Rights.CanViewReceivables)
+        {
+            return;
+        }
+
+        // Jamais écrit dans un champ : sur le tableau, il ouvre les espèces ; dans une étape, il est ignoré.
+        e.Handled = true;
+        viewModel.BeginCash();
     }
 
     private CashViewModel? ViewModel => DataContext as CashViewModel;

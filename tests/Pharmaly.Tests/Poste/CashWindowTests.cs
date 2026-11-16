@@ -164,6 +164,31 @@ public sealed class CashWindowTests
     }
 
     [AvaloniaFact]
+    public async Task L_etoile_du_clavier_principal_reconnue_au_texte_ouvre_les_especes_sans_rien_ecrire()
+    {
+        var ticket = server.AddReceivable(FakeServer.Benali, 3500m);
+        var (window, shell) = OpenWindow();
+        await SignInWithKeyboardAsync(window);
+        Press(window, PhysicalKey.F3);
+        await SettleAsync();
+        var view = CashViewOf(window);
+        var viewModel = Assert.IsType<CashViewModel>(shell.CurrentModule);
+        await ScanAsync(window, ticket.TicketBarcode);
+
+        // Disposition où la touche n'apporte pas son symbole : seul le texte « * » arrive.
+        window.KeyTextInput("*");
+        await SettleAsync();
+
+        Assert.Equal(SettlementStep.CashAmount, viewModel.Step);
+        Assert.Equal(string.Empty, view.FindControl<TextBox>("SearchBox")!.Text ?? string.Empty);
+        window.KeyTextInput("*");
+        await SettleAsync();
+        Assert.Equal(string.Empty, view.FindControl<TextBox>("ReceivedBox")!.Text ?? string.Empty);
+        Assert.Empty(server.SettleRequests);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public async Task TPE_au_clavier_Entree_ne_repond_jamais_et_R_laisse_la_dette_ouverte()
     {
         var ticket = server.AddReceivable(FakeServer.Haddad, 2000m);

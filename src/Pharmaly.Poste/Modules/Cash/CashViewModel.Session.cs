@@ -190,8 +190,8 @@ public sealed partial class CashViewModel
         SummaryLines.Add(new("Règlements d'impayés en espèces", Money.ToDisplay(summary.SettlementCashCollected)));
         SummaryLines.Add(new("Règlements d'impayés par TPE", Money.ToDisplay(summary.SettlementCardCollected), Note: "hors tiroir"));
         SummaryLines.Add(new("Entrées d'espèces", Money.ToDisplay(summary.CashIn)));
-        SummaryLines.Add(new("Sorties d'espèces", "− " + Money.ToDisplay(summary.CashOut)));
-        SummaryLines.Add(new("Remboursements en espèces", "− " + Money.ToDisplay(summary.CashRefunds)));
+        SummaryLines.Add(new("Sorties d'espèces", Deducted(summary.CashOut)));
+        SummaryLines.Add(new("Remboursements en espèces", Deducted(summary.CashRefunds)));
         SummaryLines.Add(new("Remboursements par TPE", Money.ToDisplay(summary.CardRefunds), Note: "hors tiroir"));
         ExpectedCashText = Money.ToDisplay(summary.ExpectedCash);
         HasPendingCard = summary.PendingCardCount > 0;
@@ -199,6 +199,9 @@ public sealed partial class CashViewModel
             ? $"{summary.PendingCardCount} paiement(s) par carte en attente de réponse : {Money.ToDisplay(summary.PendingCardAmount)}, compté(s) nulle part."
             : string.Empty;
     }
+
+    /// <summary>Montant retiré du tiroir : « − 500,00 DA », ou « 0,00 DA » quand il n'y a rien.</summary>
+    private static string Deducted(decimal amount) => amount == 0 ? Money.ToDisplay(0) : "− " + Money.ToDisplay(amount);
 
     // ---------- Ouverture de la caisse ----------
 
