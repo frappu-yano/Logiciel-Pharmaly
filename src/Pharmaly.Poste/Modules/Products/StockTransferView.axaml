@@ -1,0 +1,179 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Pharmaly.Poste.Modules.Products"
+             x:Class="Pharmaly.Poste.Modules.Products.StockTransferView"
+             x:DataType="local:StockTransferViewModel"
+             Focusable="True">
+  <Border Classes="card" MaxWidth="940" Padding="20" Margin="20,14" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+    <DockPanel>
+
+      <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,10">
+        <TextBlock Text="Transfert de stock" FontSize="20" FontWeight="Bold" />
+        <TextBlock Grid.Column="1" Classes="label" VerticalAlignment="Center"
+                   Text="Entrée : ajouter · Tab : quantité · ↑ ↓ : ligne · Suppr : retirer la ligne" />
+      </Grid>
+
+      <!-- Boutons -->
+      <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,10,0,0">
+        <Button x:Name="CancelButton" Classes="quiet" Focusable="False" MinHeight="46" HorizontalAlignment="Stretch"
+                IsEnabled="{Binding !IsBusy}">
+          <Grid>
+            <TextBlock Text="Fermer (Échap)" IsVisible="{Binding IsEditing}" />
+            <TextBlock Text="Revenir à la saisie (Échap)" IsVisible="{Binding IsConfirming}" />
+          </Grid>
+        </Button>
+        <Button Grid.Column="1" x:Name="SubmitButton" Classes="primary" Focusable="False"
+                Command="{Binding SubmitCommand}" IsEnabled="{Binding !IsBusy}"
+                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+          <Grid>
+            <TextBlock Text="Transférer (Ctrl+Entrée)" IsVisible="{Binding IsEditing}" />
+            <TextBlock Text="Confirmer le transfert (Entrée)" IsVisible="{Binding IsConfirming}" />
+          </Grid>
+        </Button>
+      </Grid>
+
+      <Border DockPanel.Dock="Bottom" Classes="message error" Margin="0,10,0,0"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock x:Name="ErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+      </Border>
+
+      <Border DockPanel.Dock="Bottom" x:Name="ConfirmationPanel" Classes="message info" Margin="0,10,0,0"
+              IsVisible="{Binding IsConfirming}">
+        <TextBlock x:Name="ConfirmationLabel" Text="{Binding ConfirmationText}" TextWrapping="Wrap" FontWeight="SemiBold" />
+      </Border>
+
+      <DockPanel IsEnabled="{Binding IsEditing}">
+
+        <!-- Emplacements -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,*" ColumnSpacing="12">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="label" Text="Départ (↑ ↓ pour choisir, puis Entrée)" />
+            <ComboBox x:Name="FromBox" ItemsSource="{Binding Locations}" SelectedItem="{Binding From}"
+                      HorizontalAlignment="Stretch" MinHeight="40" />
+          </StackPanel>
+          <TextBlock Grid.Column="1" Text="→" FontSize="22" VerticalAlignment="Bottom" Margin="0,0,0,6" />
+          <StackPanel Grid.Column="2" Spacing="4">
+            <TextBlock Classes="label" Text="Arrivée" />
+            <ComboBox x:Name="ToBox" ItemsSource="{Binding Locations}" SelectedItem="{Binding To}"
+                      HorizontalAlignment="Stretch" MinHeight="40" />
+          </StackPanel>
+        </Grid>
+
+        <!-- Saisie d'une ligne -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,170" ColumnSpacing="12" Margin="0,10,0,0">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="label" Text="Produit à transférer : scanner ou chercher, puis Entrée" />
+            <TextBox x:Name="SearchBox" Text="{Binding Lookup.Query}" Padding="10,9" FontSize="17"
+                     PlaceholderText="Code-barres, nom ou code interne" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="4">
+            <TextBlock Classes="label" Text="Quantité de la ligne" />
+            <TextBox x:Name="QuantityBox" Text="{Binding LineQuantity}" Padding="10,9" FontSize="17"
+                     IsEnabled="{Binding HasSelectedLine}" />
+          </StackPanel>
+        </Grid>
+        <TextBlock DockPanel.Dock="Top" x:Name="NoticeLabel" Text="{Binding Lookup.Notice}" Foreground="#9A4A12" FontSize="13"
+                   TextWrapping="Wrap" Margin="0,4,0,0"
+                   IsVisible="{Binding Lookup.Notice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+        <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,10,0,0">
+          <TextBlock Classes="label" Text="Note (facultatif)" />
+          <TextBox x:Name="NoteBox" Text="{Binding Note}" Padding="10,8" MaxLength="500" />
+        </StackPanel>
+
+        <!-- Lignes, résultats de recherche, ou résultat du dernier transfert -->
+        <Border BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="8" Margin="0,10,0,0" MinHeight="96">
+          <Grid>
+            <TextBlock x:Name="EmptyLinesLabel" Classes="label" Text="Aucune ligne : scannez ou cherchez le premier produit."
+                       HorizontalAlignment="Center" VerticalAlignment="Center">
+              <TextBlock.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                  <Binding Path="!HasLines" />
+                  <Binding Path="!HasResult" />
+                </MultiBinding>
+              </TextBlock.IsVisible>
+            </TextBlock>
+
+            <!-- Résultat du transfert enregistré -->
+            <DockPanel x:Name="ResultPanel" IsVisible="{Binding HasResult}" Margin="14,10">
+              <TextBlock DockPanel.Dock="Top" x:Name="ResultTitleLabel" Text="{Binding Result.Title}" FontWeight="SemiBold"
+                         TextWrapping="Wrap" />
+              <Grid DockPanel.Dock="Top" ColumnDefinitions="*,90,120,120" ColumnSpacing="10" Margin="0,8,0,4">
+                <TextBlock Classes="label" Text="Produit" />
+                <TextBlock Grid.Column="1" Classes="label" Text="Transféré" TextAlignment="Right" />
+                <TextBlock Grid.Column="2" Classes="label" Text="Reste au départ" TextAlignment="Right" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Stock à l'arrivée" TextAlignment="Right" />
+              </Grid>
+              <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Result.Lines}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="local:TransferResultLineViewModel">
+                      <Grid ColumnDefinitions="*,90,120,120" ColumnSpacing="10" Margin="0,4">
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="1" Text="{Binding QuantityText}" TextAlignment="Right" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="{Binding FromAfterText}" TextAlignment="Right" />
+                        <TextBlock Grid.Column="3" Text="{Binding ToAfterText}" TextAlignment="Right" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </DockPanel>
+
+            <!-- Lignes du transfert -->
+            <DockPanel IsVisible="{Binding HasLines}">
+              <Grid DockPanel.Dock="Top" ColumnDefinitions="*,150,120,90" ColumnSpacing="10" Margin="14,8,14,4">
+                <TextBlock Classes="label" Text="Produit" />
+                <TextBlock Grid.Column="1" Classes="label" Text="Code-barres" />
+                <TextBlock Grid.Column="2" Classes="label" Text="Stock au départ" TextAlignment="Right" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Quantité" TextAlignment="Right" />
+              </Grid>
+              <ListBox x:Name="LinesList" ItemsSource="{Binding Lines}" SelectedItem="{Binding SelectedLine}"
+                       Background="Transparent" Focusable="False">
+                <ListBox.Styles>
+                  <Style Selector="ListBoxItem">
+                    <Setter Property="Padding" Value="14,8" />
+                    <Setter Property="Focusable" Value="False" />
+                  </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="local:TransferLineViewModel">
+                    <Grid ColumnDefinitions="*,150,120,90" ColumnSpacing="10">
+                      <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding BarcodeText}" Classes="label" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Text="{Binding AvailableText}" TextAlignment="Right"
+                                 Foreground="{StaticResource MutedBrush}" />
+                      <TextBlock Grid.Column="3" Text="{Binding QuantityText}" TextAlignment="Right" FontWeight="SemiBold" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+
+            <!-- Résultats de la recherche, par-dessus les lignes le temps de choisir -->
+            <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" IsVisible="{Binding Lookup.HasResults}">
+              <ListBox x:Name="ResultsList" ItemsSource="{Binding Lookup.Results}" SelectedItem="{Binding Lookup.SelectedResult}"
+                       Background="Transparent" Focusable="False">
+                <ListBox.Styles>
+                  <Style Selector="ListBoxItem">
+                    <Setter Property="Padding" Value="14,8" />
+                    <Setter Property="Focusable" Value="False" />
+                  </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="local:ProductRowViewModel">
+                    <Grid ColumnDefinitions="*,150,110" ColumnSpacing="10">
+                      <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding BarcodeText}" Classes="label" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Text="{Binding PriceText}" TextAlignment="Right" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Border>
+          </Grid>
+        </Border>
+      </DockPanel>
+    </DockPanel>
+  </Border>
+</UserControl>

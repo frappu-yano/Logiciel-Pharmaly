@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="using:System"
+             xmlns:local="using:Pharmaly.Poste.Modules.Products"
+             x:Class="Pharmaly.Poste.Modules.Products.ProductEditView"
+             x:DataType="local:ProductEditViewModel"
+             Focusable="True">
+  <Border Classes="card" Width="600" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <StackPanel Spacing="12">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <TextBlock x:Name="TitleLabel" Text="{Binding Title}" FontSize="20" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
+        <TextBlock Grid.Column="1" Classes="label" Text="Entrée : champ suivant" VerticalAlignment="Center" />
+      </Grid>
+
+      <StackPanel Spacing="4">
+        <TextBlock Classes="label" Text="Désignation" />
+        <TextBox x:Name="NameBox" Text="{Binding Name}" Padding="10,9" MaxLength="200" />
+      </StackPanel>
+
+      <StackPanel Spacing="4">
+        <TextBlock Classes="label" Text="Codes-barres (le produit en garde au moins un)" />
+        <ItemsControl x:Name="BarcodesPanel" ItemsSource="{Binding Barcodes.Items}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="sys:String">
+              <Border Background="{StaticResource TurquoiseSoftBrush}" CornerRadius="6" Padding="10,3,3,3" Margin="0,0,6,6">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <TextBlock Text="{Binding}" FontWeight="Medium" VerticalAlignment="Center" />
+                  <Button Content="✕" Focusable="False" Padding="7,2" MinHeight="0" Background="Transparent"
+                          ToolTip.Tip="Retirer ce code-barres"
+                          Command="{Binding $parent[ItemsControl].((local:ProductEditViewModel)DataContext).RemoveBarcodeCommand}"
+                          CommandParameter="{Binding}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBox x:Name="BarcodeBox" Text="{Binding Barcodes.Entry}" Padding="10,9" MaxLength="64"
+                 PlaceholderText="Scanner ou saisir un code, puis Entrée" />
+      </StackPanel>
+
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="label" Text="Marque (facultatif)" />
+          <TextBox x:Name="BrandBox" Text="{Binding Brand}" Padding="10,9" MaxLength="100" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="4">
+          <TextBlock Classes="label" Text="Catégorie (facultatif)" />
+          <TextBox x:Name="CategoryBox" Text="{Binding Category}" Padding="10,9" MaxLength="100" />
+        </StackPanel>
+      </Grid>
+
+      <CheckBox x:Name="ActiveBox" IsChecked="{Binding IsActive}"
+                Content="Produit actif (proposé à la vente)" />
+
+      <Border Classes="message error"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock x:Name="ErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+      </Border>
+
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+        <Button x:Name="CancelButton" Classes="quiet" Content="Annuler (Échap)" Focusable="False" MinHeight="46"
+                HorizontalAlignment="Stretch" IsEnabled="{Binding !IsBusy}" />
+        <Button Grid.Column="1" x:Name="SubmitButton" Classes="primary" Content="Enregistrer (Ctrl+Entrée)" Focusable="False"
+                Command="{Binding SubmitCommand}" IsEnabled="{Binding !IsBusy}"
+                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      </Grid>
+    </StackPanel>
+  </Border>
+</UserControl>
