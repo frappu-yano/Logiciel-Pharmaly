@@ -1,16 +1,635 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:Pharmaly.Poste.Modules.Cash"
+             xmlns:sales="using:Pharmaly.Poste.Modules.Sales"
+             xmlns:contracts="using:Pharmaly.Contracts"
              x:Class="Pharmaly.Poste.Modules.Cash.CashView"
              x:DataType="local:CashViewModel"
              Focusable="True">
-  <!-- État vide : à remplacer par l'écran du module. -->
-  <Border Classes="card empty">
-    <StackPanel Spacing="8">
-      <TextBlock Classes="emptyTitle" Text="Caisse" />
-      <TextBlock x:Name="EmptyStateLabel" Classes="emptyState" Text="Module en cours de développement" />
-      <TextBlock Classes="label" TextAlignment="Center" TextWrapping="Wrap"
-                 Text="Aucune opération n'est possible ici pour l'instant." />
-    </StackPanel>
-  </Border>
+  <UserControl.Styles>
+    <Style Selector="TextBlock.number">
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontFeatures" Value="tnum" />
+    </Style>
+    <Style Selector="TextBlock.cell">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="TextBlock.stepTitle">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.stepError">
+      <Setter Property="Foreground" Value="#9A2B12" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.big">
+      <Setter Property="FontSize" Value="30" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="FontFeatures" Value="tnum" />
+    </Style>
+    <Style Selector="TextBlock.huge">
+      <Setter Property="FontSize" Value="46" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="FontFeatures" Value="tnum" />
+    </Style>
+    <Style Selector="TextBlock.indicator">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="FontFeatures" Value="tnum" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="TextBlock.pendingCard">
+      <Setter Property="Foreground" Value="#9A2B12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.pay">
+      <Setter Property="MinHeight" Value="52" />
+      <Setter Property="MinWidth" Value="150" />
+      <Setter Property="FontSize" Value="17" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.step">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="MinHeight" Value="46" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.tab">
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="16,0" />
+    </Style>
+    <Style Selector="Button.refuse">
+      <Setter Property="Background" Value="{StaticResource PeachBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="18,12" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Button.check">
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Width" Value="26" />
+      <Setter Property="Height" Value="26" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource MutedBrush}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.check.checked">
+      <Setter Property="Background" Value="{StaticResource TurquoiseBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource TurquoiseBrush}" />
+    </Style>
+    <Style Selector="Border.warning">
+      <Setter Property="Background" Value="{StaticResource PeachSoftBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource PeachBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="14,12" />
+    </Style>
+    <Style Selector="Border.tile">
+      <Setter Property="Padding" Value="14,8" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*">
+
+    <!-- Onglets -->
+    <Grid Margin="16,10,16,0" ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+      <Button x:Name="ReceivablesTabButton" Classes="nav tab" Classes.current="{Binding IsReceivablesTab}" Content="Impayés"
+              Command="{Binding ShowTabCommand}" CommandParameter="{x:Static local:CashTab.Receivables}" />
+      <Button Grid.Column="1" x:Name="SessionTabButton" Classes="nav tab" Classes.current="{Binding IsSessionTab}"
+              Content="Session de caisse" Command="{Binding ShowTabCommand}" CommandParameter="{x:Static local:CashTab.Session}" />
+      <Button Grid.Column="2" x:Name="ClosingTabButton" Classes="nav tab" Classes.current="{Binding IsClosingTab}" Content="Clôture"
+              Command="{Binding ShowTabCommand}" CommandParameter="{x:Static local:CashTab.Closing}" />
+      <TextBlock Grid.Column="3" Classes="label" Text="Ctrl+Tab : onglet suivant · Ctrl+R : relire" VerticalAlignment="Center"
+                 HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" />
+    </Grid>
+
+    <!-- ==================== Impayés ==================== -->
+    <Grid Grid.Row="1" x:Name="ReceivablesPanel" IsVisible="{Binding IsReceivablesTab}">
+
+      <Border Classes="card empty" IsVisible="{Binding !Rights.CanViewReceivables}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="emptyTitle" Text="Impayés" />
+          <TextBlock x:Name="NoReceivablesRightLabel" Classes="emptyState" Text="{x:Static local:CashViewModel.NoReceivablesViewRight}" />
+        </StackPanel>
+      </Border>
+
+      <DockPanel Margin="16,10,16,12" IsVisible="{Binding Rights.CanViewReceivables}">
+
+        <!-- Indicateurs, toujours visibles -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,*,*,*" ColumnSpacing="10" Margin="0,0,0,8">
+          <Border Classes="card tile">
+            <StackPanel>
+              <TextBlock Classes="label" Text="Impayés ouverts" />
+              <TextBlock x:Name="OpenAmountLabel" Classes="indicator" Text="{Binding OpenAmountText}" />
+            </StackPanel>
+          </Border>
+          <Border Grid.Column="1" Classes="card tile">
+            <StackPanel>
+              <TextBlock Classes="label" Text="Tickets impayés" />
+              <TextBlock x:Name="OpenCountLabel" Classes="indicator" Text="{Binding OpenCountText}" />
+            </StackPanel>
+          </Border>
+          <Border Grid.Column="2" Classes="card tile">
+            <StackPanel>
+              <TextBlock Classes="label" Text="Total des créances" TextTrimming="CharacterEllipsis" />
+              <TextBlock x:Name="TotalAmountLabel" Classes="indicator" Text="{Binding TotalAmountText}" />
+            </StackPanel>
+          </Border>
+          <Button Grid.Column="3" x:Name="SettledHistoryButton" Classes="quiet" Padding="14,6" HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Stretch" Focusable="False" Command="{Binding ShowSettledHistoryCommand}"
+                  ToolTip.Tip="Historique des créances soldées">
+            <StackPanel>
+              <TextBlock Classes="label" Text="Soldées — voir l'historique" TextTrimming="CharacterEllipsis" />
+              <TextBlock x:Name="SettledAmountLabel" Classes="indicator" Text="{Binding SettledAmountText}" />
+            </StackPanel>
+          </Button>
+        </Grid>
+
+        <!-- Caisse fermée -->
+        <Border DockPanel.Dock="Top" x:Name="CashClosedWarning" Classes="warning" Margin="0,0,0,8" Padding="12,8"
+                IsVisible="{Binding IsCashClosedWarning}">
+          <TextBlock Text="{x:Static local:CashViewModel.CashClosedMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
+
+        <!-- Recherche et filtres -->
+        <Border DockPanel.Dock="Top" Classes="card" Padding="12,8" Margin="0,0,0,8">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto,96,Auto,96" ColumnSpacing="8">
+            <TextBox x:Name="SearchBox" Text="{Binding SearchText}" FontSize="16" Padding="10,8"
+                     PlaceholderText="Scanner le ticket, n° de ticket ou nom du client, puis Entrée" />
+            <Border Grid.Column="1" x:Name="CustomerFilterChip" Classes="state active" Padding="10,2,2,2"
+                    IsVisible="{Binding HasCustomerFilter}">
+              <StackPanel Orientation="Horizontal" Spacing="4">
+                <TextBlock x:Name="CustomerFilterLabel" Text="{Binding CustomerFilterText}" VerticalAlignment="Center" FontSize="13"
+                           FontWeight="SemiBold" MaxWidth="200" TextTrimming="CharacterEllipsis" />
+                <Button Content="✕" Padding="8,2" MinHeight="0" Background="Transparent" Focusable="False"
+                        Command="{Binding ClearCustomerFilterCommand}" ToolTip.Tip="Tous les clients" />
+              </StackPanel>
+            </Border>
+            <ComboBox Grid.Column="2" x:Name="StatusBox" ItemsSource="{Binding StatusChoices}" SelectedItem="{Binding SelectedStatus}"
+                      MinWidth="110" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="3" Classes="label" Text="du" VerticalAlignment="Center" />
+            <TextBox Grid.Column="4" x:Name="FromBox" Text="{Binding FromText}" PlaceholderText="jj/mm/aaaa" Padding="8,8" />
+            <TextBlock Grid.Column="5" Classes="label" Text="au" VerticalAlignment="Center" />
+            <TextBox Grid.Column="6" x:Name="ToBox" Text="{Binding ToText}" PlaceholderText="jj/mm/aaaa" Padding="8,8" />
+          </Grid>
+        </Border>
+
+        <!-- Sélection, règlement et messages -->
+        <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
+          <Border Classes="message error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock x:Name="ErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+          </Border>
+          <Border Classes="message info" IsVisible="{Binding InfoMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock x:Name="InfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+          </Border>
+
+          <Border x:Name="SelectionBar" Classes="card" Padding="14,8" IsVisible="{Binding CanSettle}">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
+              <StackPanel VerticalAlignment="Center" Spacing="1">
+                <TextBlock x:Name="SelectionCustomerLabel" Text="{Binding SelectionCustomerText}" FontWeight="SemiBold" FontSize="16"
+                           TextTrimming="CharacterEllipsis" IsVisible="{Binding HasSelection}" />
+                <TextBlock x:Name="SelectionTicketsLabel" Classes="label" Text="{Binding SelectionTicketsText}"
+                           TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,6,0">
+                <TextBlock Classes="label" Text="À ENCAISSER" HorizontalAlignment="Right" />
+                <TextBlock x:Name="SelectionTotalLabel" Classes="big number" FontSize="26" Text="{Binding SelectionTotalText}" />
+              </StackPanel>
+              <Button Grid.Column="2" x:Name="CashButton" Classes="primary pay" Command="{Binding BeginCashCommand}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <Border Classes="key" MinWidth="34">
+                    <TextBlock x:Name="CashKeyLabel" Text="{Binding CashKeyLabel}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" />
+                  </Border>
+                  <TextBlock Grid.Column="1" Text="ESPÈCES" VerticalAlignment="Center" />
+                </Grid>
+              </Button>
+              <Button Grid.Column="3" x:Name="CardButton" Classes="quiet pay" Command="{Binding BeginCardCommand}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <Border Classes="key" MinWidth="34">
+                    <TextBlock x:Name="CardKeyLabel" Text="{Binding CardKeyLabel}" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" />
+                  </Border>
+                  <TextBlock Grid.Column="1" Text="TPE" VerticalAlignment="Center" />
+                </Grid>
+              </Button>
+            </Grid>
+          </Border>
+
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBlock Classes="label" TextWrapping="Wrap" VerticalAlignment="Center"
+                       Text="Entrée : chercher · ↑ ↓ : ligne · Espace : cocher · F7 : ouverts / soldés / tous · Échap : effacer la recherche ou le client" />
+            <Button Grid.Column="1" x:Name="PendingAnswerButton" Classes="quiet" Focusable="False"
+                    Content="Réponse du TPE en attente (Ctrl+T)" Command="{Binding BeginPendingAnswerCommand}"
+                    IsVisible="{Binding CanAnswerCurrentPending}" />
+          </Grid>
+        </StackPanel>
+
+        <!-- Tableau -->
+        <Border Classes="card" Padding="0" ClipToBounds="True">
+          <DockPanel>
+            <Border DockPanel.Dock="Top" Padding="12,7" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+              <Grid ColumnDefinitions="30,98,112,*,104,100,*,112,58" ColumnSpacing="8">
+                <TextBlock Grid.Column="1" Classes="label" Text="Ticket" />
+                <TextBlock Grid.Column="2" Classes="label" Text="Date" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Client" />
+                <TextBlock Grid.Column="4" Classes="label number" Text="Montant dû" />
+                <TextBlock Grid.Column="5" Classes="label" Text="Statut" />
+                <TextBlock Grid.Column="6" Classes="label" Text="Employé" />
+                <TextBlock Grid.Column="7" Classes="label" Text="Réglé le" />
+                <TextBlock Grid.Column="8" Classes="label" Text="Moyen" />
+              </Grid>
+            </Border>
+            <Grid>
+              <TextBlock x:Name="EmptyTableLabel" Classes="emptyState" Text="Aucun ticket dans ce filtre" IsVisible="{Binding !HasRows}"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <ListBox x:Name="RowsList" ItemsSource="{Binding Rows}" SelectedItem="{Binding CurrentRow}" Background="Transparent"
+                       Focusable="False">
+                <ListBox.Styles>
+                  <Style Selector="ListBoxItem">
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="Padding" Value="12,6" />
+                  </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="local:ReceivableRowViewModel">
+                    <Grid ColumnDefinitions="30,98,112,*,104,100,*,112,58" ColumnSpacing="8">
+                      <Button Classes="check" Classes.checked="{Binding IsChecked}" IsVisible="{Binding IsOpen}"
+                              Command="{Binding $parent[UserControl].((local:CashViewModel)DataContext).ToggleCommand}"
+                              CommandParameter="{Binding}">
+                        <TextBlock Text="✓" FontWeight="Bold" FontSize="14" IsVisible="{Binding IsChecked}" />
+                      </Button>
+                      <TextBlock Grid.Column="1" Classes="cell" Text="{Binding TicketNumber}" FontWeight="SemiBold" />
+                      <TextBlock Grid.Column="2" Classes="cell label" Text="{Binding DateText}" />
+                      <TextBlock Grid.Column="3" Classes="cell" Text="{Binding CustomerName}" ToolTip.Tip="{Binding CustomerName}" />
+                      <TextBlock Grid.Column="4" Classes="number" Text="{Binding AmountText}" FontWeight="SemiBold" FontSize="14" />
+                      <TextBlock Grid.Column="5" Classes="cell" Classes.pendingCard="{Binding IsCardPending}" Text="{Binding StatusText}" />
+                      <TextBlock Grid.Column="6" Classes="cell" Text="{Binding EmployeeName}" />
+                      <TextBlock Grid.Column="7" Classes="cell label" Text="{Binding SettledAtText}" />
+                      <TextBlock Grid.Column="8" Classes="cell" Text="{Binding MethodText}" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </DockPanel>
+        </Border>
+      </DockPanel>
+    </Grid>
+
+    <!-- ==================== Session de caisse ==================== -->
+    <Grid Grid.Row="1" x:Name="SessionPanel" IsVisible="{Binding IsSessionTab}" Margin="16,10,16,12"
+          ColumnDefinitions="*,*" ColumnSpacing="14">
+
+      <StackPanel Spacing="10">
+        <Border Classes="card">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="label" Text="Caisse de ce poste" />
+            <TextBlock x:Name="CashStateLabel" Text="{Binding CashStateText}" FontSize="22" FontWeight="Bold" TextWrapping="Wrap" />
+            <TextBlock x:Name="CashOpenedLabel" Text="{Binding CashOpenedText}" IsVisible="{Binding IsCashOpen}" TextWrapping="Wrap" />
+            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsCashOpen}">
+              <TextBlock Text="Fond de caisse" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="CashFloatLabel" Classes="number" FontWeight="SemiBold" Text="{Binding CashFloatText}" />
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <!-- Ouverture -->
+        <Border x:Name="OpeningPanel" Classes="card" IsVisible="{Binding CanShowOpening}">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="label" Text="Fond de caisse compté, en dinars (0 si la caisse est vide)" />
+            <TextBox x:Name="OpeningFloatBox" Text="{Binding OpeningFloatText}" FontSize="22" Padding="12,10" TextAlignment="Right"
+                     IsEnabled="{Binding !IsConfirmingOpening}" />
+            <Button Classes="primary step" Content="Valider le fond de caisse (Entrée)" Command="{Binding RequestCashOpeningCommand}"
+                    IsVisible="{Binding !IsConfirmingOpening}" />
+            <Border x:Name="OpeningConfirmationPanel" Classes="warning" IsVisible="{Binding IsConfirmingOpening}">
+              <StackPanel Spacing="10">
+                <TextBlock Text="Ouvrir la caisse avec ce fond de caisse ?" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock x:Name="OpeningConfirmationLabel" Classes="big number" Text="{Binding OpeningFloatDisplayText}" />
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                  <Button Classes="quiet step" Content="Corriger (Échap)" Command="{Binding CancelCashOpeningCommand}" />
+                  <Button Grid.Column="1" Classes="primary step" Content="Ouvrir (Entrée)" Command="{Binding ConfirmCashOpeningCommand}" />
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+        <Border Classes="warning" IsVisible="{Binding IsCashClosed}">
+          <TextBlock Text="Aucune vente ni aucun règlement n'est possible tant que la caisse de ce poste est fermée."
+                     TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
+
+        <!-- Entrées et sorties d'espèces -->
+        <Grid x:Name="MovementButtons" ColumnDefinitions="*,*" ColumnSpacing="10" IsVisible="{Binding CanShowMovements}">
+          <Button x:Name="CashInButton" Classes="quiet pay" HorizontalAlignment="Stretch" Command="{Binding BeginCashInCommand}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <Border Classes="key"><TextBlock Text="{Binding CashInKeyLabel}" FontSize="13" FontWeight="Bold" /></Border>
+              <TextBlock Grid.Column="1" Text="Entrée d'espèces" VerticalAlignment="Center" FontSize="15" />
+            </Grid>
+          </Button>
+          <Button Grid.Column="1" x:Name="CashOutButton" Classes="quiet pay" HorizontalAlignment="Stretch" Command="{Binding BeginCashOutCommand}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <Border Classes="key"><TextBlock Text="{Binding CashOutKeyLabel}" FontSize="13" FontWeight="Bold" /></Border>
+              <TextBlock Grid.Column="1" Text="Sortie d'espèces" VerticalAlignment="Center" FontSize="15" />
+            </Grid>
+          </Button>
+        </Grid>
+
+        <Border Classes="message error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock x:Name="SessionErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
+        <Border Classes="message info" IsVisible="{Binding InfoMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock x:Name="SessionInfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
+      </StackPanel>
+
+      <!-- Résumé de session -->
+      <Border Grid.Column="1" Classes="card" VerticalAlignment="Top" IsVisible="{Binding IsCashOpen}">
+        <Grid>
+          <TextBlock Classes="emptyState" Text="Vos droits ne permettent pas de consulter les rapports de caisse."
+                     IsVisible="{Binding CannotViewReports}" />
+          <StackPanel x:Name="SummaryPanel" Spacing="4" IsVisible="{Binding CanShowSummary}">
+            <TextBlock Text="Résumé de la session" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <ItemsControl ItemsSource="{Binding SummaryLines}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="local:SummaryLine">
+                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,3">
+                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Classes="label" Text="{Binding Note}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Classes="number" Text="{Binding Amount}" MinWidth="120" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Border Background="{StaticResource TurquoiseSoftBrush}" CornerRadius="8" Padding="14,10" Margin="0,8,0,0">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="ESPÈCES ATTENDUES DANS LE TIROIR" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <TextBlock Grid.Column="1" x:Name="ExpectedCashLabel" Classes="big number" FontSize="26" Text="{Binding ExpectedCashText}" />
+              </Grid>
+            </Border>
+            <TextBlock x:Name="PendingCardLabel" Classes="stepError" Text="{Binding PendingCardText}" IsVisible="{Binding HasPendingCard}" />
+            <TextBlock Classes="label" TextWrapping="Wrap"
+                       Text="Les règlements d'impayés sont de la trésorerie du jour, pas du chiffre d'affaires. Un paiement par carte en attente n'est compté nulle part." />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- ==================== Clôture ==================== -->
+    <Border Grid.Row="1" x:Name="ClosingPanel" Classes="card empty" IsVisible="{Binding IsClosingTab}">
+      <StackPanel Spacing="8">
+        <TextBlock Classes="emptyTitle" Text="Clôture quotidienne" />
+        <TextBlock x:Name="ClosingLabel" Classes="emptyState" Text="{x:Static local:CashViewModel.ClosingNotAvailable}" />
+      </StackPanel>
+    </Border>
+
+    <!-- ==================== Étapes du règlement ==================== -->
+    <Border Grid.Row="0" Grid.RowSpan="2" x:Name="StepOverlay" Background="#99111111" IsVisible="{Binding IsStepOpen}" ZIndex="10">
+      <Border Classes="card" Width="600" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid>
+
+          <!-- Choix du client -->
+          <StackPanel x:Name="ChooseCustomerPanel" Spacing="10"
+                      IsVisible="{Binding Step, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SettlementStep.ChooseCustomer}}">
+            <TextBlock Classes="stepTitle" Text="Plusieurs clients correspondent" />
+            <Border Classes="card" Padding="0" MaxHeight="260">
+              <ListBox x:Name="CustomerList" ItemsSource="{Binding CustomerResults}" SelectedItem="{Binding SelectedCustomerResult}"
+                       Background="Transparent" Focusable="False">
+                <ListBox.Styles>
+                  <Style Selector="ListBoxItem">
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="Padding" Value="12,8" />
+                  </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="contracts:CustomerSummary">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                      <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" Classes="label" Text="{Binding Phone}" VerticalAlignment="Center" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Border>
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Annuler (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Voir ses tickets (Entrée)" Command="{Binding ChooseCustomerCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Espèces : montant reçu -->
+          <StackPanel x:Name="CashAmountPanel" Spacing="10"
+                      IsVisible="{Binding Step, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SettlementStep.CashAmount}}">
+            <TextBlock Classes="stepTitle" Text="Règlement en espèces" />
+            <StackPanel Spacing="2">
+              <TextBlock Classes="label" Text="Client" />
+              <TextBlock x:Name="CashCustomerLabel" Text="{Binding CheckoutCustomerText}" FontSize="20" FontWeight="Bold" TextWrapping="Wrap" />
+            </StackPanel>
+            <TextBlock Classes="label" Text="{Binding CheckoutTicketsText}" TextWrapping="Wrap" MaxHeight="96" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Montant dû (non modifiable)" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="CashTotalLabel" Classes="big number" Text="{Binding CheckoutTotalText}" />
+            </Grid>
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" Text="Montant reçu (laisser vide si le client donne le montant exact)" />
+              <TextBox x:Name="ReceivedBox" Text="{Binding ReceivedText}" FontSize="24" Padding="12,10" TextAlignment="Right" />
+            </StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Monnaie à rendre" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="ChangePreviewLabel" Classes="big number" Text="{Binding ChangePreviewText}" />
+            </Grid>
+            <TextBlock x:Name="CashErrorLabel" Classes="stepError" Text="{Binding StepError}"
+                       IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Annuler (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Valider (Entrée)" Command="{Binding ValidateCashAmountCommand}" />
+            </Grid>
+            <TextBlock Classes="label" Text="Rien n'est encore enregistré : la confirmation vient ensuite." TextWrapping="Wrap" />
+          </StackPanel>
+
+          <!-- Espèces : confirmation -->
+          <StackPanel x:Name="CashConfirmPanel" Spacing="10"
+                      IsVisible="{Binding Step, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SettlementStep.CashConfirm}}">
+            <TextBlock Classes="stepTitle" Text="Espèces — confirmer le règlement" />
+            <TextBlock x:Name="CashConfirmCustomerLabel" Text="{Binding CheckoutCustomerText}" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" />
+            <TextBlock Classes="label" Text="{Binding CheckoutTicketsText}" TextWrapping="Wrap" MaxHeight="96" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Montant dû" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="CashConfirmTotalLabel" Classes="number" FontSize="20" FontWeight="SemiBold"
+                         Text="{Binding CheckoutTotalText}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Montant reçu" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="AmountReceivedLabel" Classes="number" FontSize="20" FontWeight="SemiBold"
+                         Text="{Binding AmountReceivedText}" />
+            </Grid>
+            <Border Background="{StaticResource TurquoiseSoftBrush}" CornerRadius="8" Padding="16,8">
+              <StackPanel>
+                <TextBlock Text="MONNAIE À RENDRE" FontWeight="SemiBold" />
+                <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Right" Height="56">
+                  <TextBlock x:Name="ChangeDueLabel" Classes="huge" Text="{Binding ChangeDueText}" />
+                </Viewbox>
+              </StackPanel>
+            </Border>
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Modifier (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Encaisser (Entrée)" Command="{Binding ConfirmSettlementCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- TPE : confirmation -->
+          <StackPanel x:Name="CardConfirmPanel" Spacing="10"
+                      IsVisible="{Binding Step, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SettlementStep.CardConfirm}}">
+            <TextBlock Classes="stepTitle" Text="TPE — lancer le paiement par carte" />
+            <TextBlock x:Name="CardCustomerLabel" Text="{Binding CheckoutCustomerText}" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" />
+            <TextBlock Classes="label" Text="{Binding CheckoutTicketsText}" TextWrapping="Wrap" MaxHeight="96" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Montant dû (non modifiable)" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="CardTotalLabel" Classes="big number" Text="{Binding CheckoutTotalText}" />
+            </Grid>
+            <TextBlock TextWrapping="Wrap"
+                       Text="Le règlement sera enregistré « en attente ». La dette ne sera soldée qu'après « Paiement accepté »." />
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Annuler (Échap)" Command="{Binding CancelStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Lancer le paiement (Entrée)" Command="{Binding ConfirmSettlementCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- TPE : réponse du terminal -->
+          <StackPanel x:Name="CardPendingPanel" Spacing="10"
+                      IsVisible="{Binding Step, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SettlementStep.CardPending}}">
+            <TextBlock Classes="stepTitle" Text="Paiement par carte en attente" />
+            <TextBlock x:Name="PendingSettlementLabel" Classes="big" Text="{Binding PendingSettlementText}" FontSize="22" TextWrapping="Wrap" />
+            <TextBlock Classes="label" Text="{Binding CheckoutTicketsText}" TextWrapping="Wrap" MaxHeight="96" />
+            <TextBlock TextWrapping="Wrap" Text="Encaissez ce montant sur le terminal, puis indiquez sa réponse." />
+            <Button x:Name="CardAcceptedButton" Classes="primary pay" HorizontalAlignment="Stretch" Command="{Binding AcceptCardCommand}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <Border Classes="key" MinWidth="34">
+                  <TextBlock Text="{Binding CardAcceptedKeyLabel}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" />
+                </Border>
+                <TextBlock Grid.Column="1" Text="Paiement accepté" VerticalAlignment="Center" />
+              </Grid>
+            </Button>
+            <Button x:Name="CardRefusedButton" Classes="refuse pay" HorizontalAlignment="Stretch" Command="{Binding RefuseCardCommand}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <Border Classes="key" MinWidth="34">
+                  <TextBlock Text="{Binding CardRefusedKeyLabel}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" />
+                </Border>
+                <TextBlock Grid.Column="1" Text="Paiement refusé — la dette reste ouverte" VerticalAlignment="Center" />
+              </Grid>
+            </Button>
+            <TextBlock Classes="label" TextWrapping="Wrap" Text="Entrée ne répond pas à la place du terminal." />
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <TextBlock x:Name="CardErrorLabel" Classes="stepError" Text="{Binding StepError}"
+                       IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+
+          <!-- Envoi sans réponse -->
+          <StackPanel x:Name="UnconfirmedPanel" Spacing="12"
+                      IsVisible="{Binding Step, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SettlementStep.Unconfirmed}}">
+            <Border Classes="warning">
+              <TextBlock x:Name="UnconfirmedLabel" Text="{x:Static local:CashViewModel.UnconfirmedTitle}" FontSize="20" FontWeight="Bold"
+                         TextWrapping="Wrap" />
+            </Border>
+            <TextBlock TextWrapping="Wrap"
+                       Text="Le serveur n'a pas répondu : on ne sait pas si le règlement est enregistré. Réessayer renvoie exactement le même règlement ; il ne peut pas être encaissé deux fois." />
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Button x:Name="RetryButton" Classes="primary step" Content="Réessayer (Entrée)" Command="{Binding RetrySettlementCommand}" />
+          </StackPanel>
+
+          <!-- Récapitulatif -->
+          <StackPanel x:Name="DonePanel" Spacing="10"
+                      IsVisible="{Binding Step, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SettlementStep.Done}}">
+            <TextBlock Classes="stepTitle" Text="Règlement enregistré" />
+            <TextBlock x:Name="DoneTitleLabel" Text="{Binding DoneTitle}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock x:Name="DoneTicketsLabel" Classes="label" Text="{Binding DoneTicketsText}" TextWrapping="Wrap" MaxHeight="96" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Montant encaissé" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="DoneAmountLabel" Classes="big number" Text="{Binding DoneAmountText}" />
+            </Grid>
+            <Border Background="{StaticResource TurquoiseSoftBrush}" CornerRadius="8" Padding="16,8" IsVisible="{Binding IsDoneCash}">
+              <StackPanel>
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="MONNAIE À RENDRE" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Classes="label" Text="{Binding DoneReceivedText}" VerticalAlignment="Center" />
+                </Grid>
+                <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Right" Height="56">
+                  <TextBlock x:Name="DoneChangeLabel" Classes="huge" Text="{Binding DoneChangeText}" />
+                </Viewbox>
+              </StackPanel>
+            </Border>
+            <Border Background="{StaticResource TurquoiseSoftBrush}" CornerRadius="8" Padding="16,10" IsVisible="{Binding IsDoneCard}">
+              <TextBlock x:Name="DoneCardLabel" Text="TPE — paiement accepté" FontSize="18" FontWeight="SemiBold" />
+            </Border>
+            <Button x:Name="DoneButton" Classes="primary step" Content="Retour au tableau (Entrée)" Command="{Binding FinishCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Border>
+
+    <!-- ==================== Étapes des mouvements d'espèces ==================== -->
+    <Border Grid.Row="0" Grid.RowSpan="2" x:Name="SessionStepOverlay" Background="#99111111" IsVisible="{Binding IsSessionStepOpen}"
+            ZIndex="10">
+      <Border Classes="card" Width="560" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid>
+          <StackPanel x:Name="MovementInputPanel" Spacing="10"
+                      IsVisible="{Binding SessionStep, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SessionStep.MovementInput}}">
+            <TextBlock Classes="stepTitle" Text="{Binding MovementTitle}" />
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" Text="Montant (virgule ou point)" />
+              <TextBox x:Name="MovementAmountBox" Text="{Binding MovementAmountText}" FontSize="22" Padding="12,10" TextAlignment="Right" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" Text="Motif (obligatoire)" />
+              <TextBox x:Name="MovementReasonBox" Text="{Binding MovementReason}" FontSize="17" Padding="12,9" MaxLength="500" />
+            </StackPanel>
+            <TextBlock x:Name="MovementErrorLabel" Classes="stepError" Text="{Binding SessionStepError}"
+                       IsVisible="{Binding SessionStepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Annuler (Échap)" Command="{Binding CancelSessionStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Valider (Entrée)" Command="{Binding ValidateMovementCommand}" />
+            </Grid>
+            <TextBlock Classes="label" Text="Rien n'est encore enregistré : la confirmation vient ensuite." />
+          </StackPanel>
+
+          <StackPanel x:Name="MovementConfirmPanel" Spacing="12"
+                      IsVisible="{Binding SessionStep, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SessionStep.MovementConfirm}}">
+            <TextBlock Classes="stepTitle" Text="{Binding MovementTitle}" />
+            <TextBlock x:Name="MovementAmountLabel" Classes="big number" HorizontalAlignment="Left" Text="{Binding MovementAmountDisplayText}" />
+            <TextBlock x:Name="MovementConfirmLabel" Text="{Binding MovementConfirmText}" TextWrapping="Wrap" />
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Modifier (Échap)" Command="{Binding CancelSessionStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Enregistrer (Entrée)" Command="{Binding ConfirmMovementCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <StackPanel x:Name="MovementUnconfirmedPanel" Spacing="12"
+                      IsVisible="{Binding SessionStep, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SessionStep.MovementUnconfirmed}}">
+            <Border Classes="warning">
+              <TextBlock Text="{x:Static local:CashViewModel.MovementUnconfirmedTitle}" FontSize="19" FontWeight="Bold" TextWrapping="Wrap" />
+            </Border>
+            <TextBlock TextWrapping="Wrap"
+                       Text="Le serveur n'a pas répondu : on ne sait pas si le mouvement est enregistré. Réessayer renvoie exactement le même mouvement ; il ne peut pas être compté deux fois." />
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Button Classes="primary step" Content="Réessayer (Entrée)" Command="{Binding RetryMovementCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Border>
+  </Grid>
 </UserControl>

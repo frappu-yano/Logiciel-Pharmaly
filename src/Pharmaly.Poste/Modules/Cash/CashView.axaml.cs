@@ -1,13 +1,378 @@
+using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 namespace Pharmaly.Poste.Modules.Cash;
 
+/// <summary>
+/// Écran de caisse. Tout se fait au clavier et au lecteur : les touches arrivent ici avant les
+/// contrôles, et le curseur est replacé au bon endroit à chaque changement d'onglet ou d'étape.
+/// </summary>
 public sealed partial class CashView : UserControl, IModuleView
 {
-    public CashView() => InitializeComponent();
+    private CashViewModel? observed;
 
-    public void FocusDefault() => Focus();
+    public CashView()
+    {
+        InitializeComponent();
 
-    public Task HandleKeyAsync(KeyEventArgs e) => Task.CompletedTask;
+        // Un clic sur une ligne ou un bouton ne doit pas laisser le clavier sans destinataire.
+        AddHandler(
+            PointerReleasedEvent,
+            (_, _) =>
+            {
+                if (!IsInFilterField())
+                {
+                    FocusAfterLayout();
+                }
+            },
+            RoutingStrategies.Bubble,
+            handledEventsToo: true);
+    }
+
+    private CashViewModel? ViewModel => DataContext as CashViewModel;
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (observed is not null)
+        {
+            observed.PropertyChanged -= OnViewModelChanged;
+        }
+
+        observed = ViewModel;
+        if (observed is not null)
+        {
+            observed.PropertyChanged += OnViewModelChanged;
+        }
+    }
+
+    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs change)
+    {
+        switch (change.PropertyName)
+        {
+            case nameof(CashViewModel.Tab) or nameof(CashViewModel.Step) or nameof(CashViewModel.SessionStep)
+                or nameof(CashViewModel.IsConfirmingOpening) or nameof(CashViewModel.IsCashStateKnown):
+                FocusAfterLayout();
+                break;
+            case nameof(CashViewModel.CurrentRow) when ViewModel?.CurrentRow is { } row:
+                RowsList.ScrollIntoView(row);
+                break;
+            case nameof(CashViewModel.SelectedCustomerResult) when ViewModel?.SelectedCustomerResult is { } customer:
+                CustomerList.ScrollIntoView(customer);
+                break;
+        }
+    }
+
+    private bool IsInFilterField() =>
+        FromBox.IsKeyboardFocusWithin || ToBox.IsKeyboardFocusWithin || StatusBox.IsKeyboardFocusWithin;
+
+    /// <summary>Le curseur va là où l'employé travaille : la recherche, ou le champ de l'étape ouverte.</summary>
+    public void FocusDefault()
+    {
+        if (ViewModel is not { } viewModel)
+        {
+            Focus();
+            return;
+        }
+
+        if (viewModel is { IsReceivablesTab: true, IsStepOpen: false } && IsInFilterField())
+        {
+            return;
+        }
+
+        var target = TargetFor(viewModel);
+        if (target is TextBox { IsKeyboardFocusWithin: true })
+        {
+            return;
+        }
+
+        if (!target.Focus())
+        {
+            Focus();
+        }
+
+        if (target is TextBox box && !ReferenceEquals(box, SearchBox))
+        {
+            box.SelectAll();
+        }
+    }
+
+    private Control TargetFor(CashViewModel viewModel)
+    {
+        if (viewModel.IsStepOpen)
+        {
+            return viewModel.Step == SettlementStep.CashAmount ? ReceivedBox : this;
+        }
+
+        if (viewModel.IsSessionStepOpen)
+        {
+            return viewModel.SessionStep == SessionStep.MovementInput
+                ? MovementReasonBox.IsFocused ? MovementReasonBox : MovementAmountBox
+                : this;
+        }
+
+        return viewModel.Tab switch
+        {
+            CashTab.Receivables when viewModel.Rights.CanViewReceivables => SearchBox,
+            CashTab.Session when viewModel is { CanShowOpening: true, IsConfirmingOpening: false } => OpeningFloatBox,
+            _ => this,
+        };
+    }
+
+    private void FocusAfterLayout() => Dispatcher.UIThread.Post(FocusDefault, DispatcherPriority.Loaded);
+
+    public async Task HandleKeyAsync(KeyEventArgs e)
+    {
+        if (ViewModel is not { } viewModel)
+        {
+            return;
+        }
+
+        if (viewModel.IsStepOpen)
+        {
+            await HandleSettlementStepKeyAsync(viewModel, e);
+            return;
+        }
+
+        if (viewModel.IsSessionStepOpen)
+        {
+            await HandleSessionStepKeyAsync(viewModel, e);
+            return;
+        }
+
+        if (e.Key == Key.Tab && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            e.Handled = true;
+            await viewModel.MoveTabAsync(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? -1 : 1);
+            return;
+        }
+
+        if (CashShortcuts.IsControl(e, CashShortcuts.RefreshKey))
+        {
+            e.Handled = true;
+            await viewModel.RefreshAsync();
+            return;
+        }
+
+        switch (viewModel.Tab)
+        {
+            case CashTab.Receivables when viewModel.Rights.CanViewReceivables:
+                await HandleReceivablesKeyAsync(viewModel, e);
+                break;
+            case CashTab.Session:
+                await HandleSessionKeyAsync(viewModel, e);
+                break;
+        }
+    }
+
+    private async Task HandleReceivablesKeyAsync(CashViewModel viewModel, KeyEventArgs e)
+    {
+        // Choisir le moyen n'est jamais confirmer : chaque touche ouvre une étape.
+        if (CashShortcuts.IsCash(e))
+        {
+            e.Handled = true;
+            viewModel.BeginCash();
+            return;
+        }
+
+        if (CashShortcuts.IsCard(e))
+        {
+            e.Handled = true;
+            viewModel.BeginCard();
+            return;
+        }
+
+        var statusOpen = StatusBox.IsDropDownOpen;
+        var searchIsEmpty = string.IsNullOrEmpty(viewModel.SearchText);
+        switch (e.Key)
+        {
+            case CashShortcuts.StatusFilterKey when e.KeyModifiers == KeyModifiers.None:
+                e.Handled = true;
+                viewModel.CycleStatus();
+                break;
+
+            case CashShortcuts.PendingAnswerKey when e.KeyModifiers == KeyModifiers.Control:
+                e.Handled = true;
+                await viewModel.BeginPendingAnswerAsync();
+                break;
+
+            case Key.Enter when !statusOpen:
+                e.Handled = true;
+                await viewModel.SubmitSearchAsync();
+                break;
+
+            case Key.Down or Key.Up when !statusOpen && !StatusBox.IsKeyboardFocusWithin:
+                e.Handled = true;
+                viewModel.MoveCurrent(e.Key == Key.Down ? 1 : -1);
+                break;
+
+            case Key.Space when searchIsEmpty || !SearchBox.IsKeyboardFocusWithin:
+                e.Handled = true;
+                viewModel.ToggleCurrent();
+                break;
+
+            case Key.Delete when searchIsEmpty && SearchBox.IsKeyboardFocusWithin:
+                e.Handled = true;
+                viewModel.ClearSelection();
+                break;
+
+            case Key.Escape when !statusOpen:
+                e.Handled = true;
+                if (!searchIsEmpty)
+                {
+                    viewModel.SearchText = string.Empty;
+                }
+                else
+                {
+                    await viewModel.ClearCustomerFilterAsync();
+                }
+
+                SearchBox.Focus();
+                break;
+        }
+    }
+
+    private static async Task HandleSessionKeyAsync(CashViewModel viewModel, KeyEventArgs e)
+    {
+        if (CashShortcuts.IsAlone(e, CashShortcuts.CashInKey) && !viewModel.IsConfirmingOpening)
+        {
+            e.Handled = true;
+            viewModel.BeginCashIn();
+            return;
+        }
+
+        if (CashShortcuts.IsAlone(e, CashShortcuts.CashOutKey) && !viewModel.IsConfirmingOpening)
+        {
+            e.Handled = true;
+            viewModel.BeginCashOut();
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case Key.Enter:
+                e.Handled = true;
+                if (viewModel.IsConfirmingOpening)
+                {
+                    await viewModel.ConfirmCashOpeningAsync();
+                }
+                else if (viewModel.CanShowOpening)
+                {
+                    viewModel.RequestCashOpening();
+                }
+
+                break;
+
+            case Key.Escape:
+                e.Handled = true;
+                viewModel.CancelCashOpening();
+                break;
+
+            default:
+                // Pendant la confirmation, aucune frappe ne modifie le montant affiché.
+                e.Handled = viewModel.IsConfirmingOpening;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Une étape de règlement est ouverte : le clavier ne sert qu'à elle. Seule la saisie du
+    /// montant reçu laisse passer la frappe vers son champ.
+    /// </summary>
+    private static async Task HandleSettlementStepKeyAsync(CashViewModel viewModel, KeyEventArgs e)
+    {
+        var step = viewModel.Step;
+        if (step != SettlementStep.CashAmount || e.Key is Key.Enter or Key.Escape or Key.Tab || CashShortcuts.IsCash(e))
+        {
+            e.Handled = true;
+        }
+
+        if (e.Key == Key.Escape)
+        {
+            await viewModel.CancelStepAsync();
+            return;
+        }
+
+        switch (step)
+        {
+            case SettlementStep.ChooseCustomer when e.Key == Key.Enter:
+                await viewModel.ChooseCustomerAsync();
+                break;
+
+            case SettlementStep.ChooseCustomer when e.Key is Key.Down or Key.Up:
+                viewModel.MoveCustomerSelection(e.Key == Key.Down ? 1 : -1);
+                break;
+
+            case SettlementStep.CashAmount when e.Key == Key.Enter:
+                viewModel.ValidateCashAmount();
+                break;
+
+            case SettlementStep.CashConfirm or SettlementStep.CardConfirm when e.Key == Key.Enter:
+                await viewModel.ConfirmSettlementAsync();
+                break;
+
+            case SettlementStep.CashConfirm when e.Key is >= Key.D0 and <= Key.D9 or >= Key.NumPad0 and <= Key.NumPad9:
+                // Des chiffres pendant la confirmation : retour à la saisie du montant, rien n'est confirmé.
+                await viewModel.CancelStepAsync();
+                break;
+
+            // Réponse du TPE : une lettre par réponse, jamais Entrée.
+            case SettlementStep.CardPending when e.Key == Sales.SalesShortcuts.CardAcceptedKey && e.KeyModifiers == KeyModifiers.None:
+                await viewModel.AnswerCardAsync(true);
+                break;
+
+            case SettlementStep.CardPending when e.Key == Sales.SalesShortcuts.CardRefusedKey && e.KeyModifiers == KeyModifiers.None:
+                await viewModel.AnswerCardAsync(false);
+                break;
+
+            case SettlementStep.Unconfirmed when e.Key == Key.Enter:
+                await viewModel.RetrySettlementAsync();
+                break;
+
+            case SettlementStep.Done when e.Key == Key.Enter:
+                await viewModel.FinishAsync();
+                break;
+        }
+    }
+
+    private async Task HandleSessionStepKeyAsync(CashViewModel viewModel, KeyEventArgs e)
+    {
+        var step = viewModel.SessionStep;
+        if (step != SessionStep.MovementInput || e.Key is Key.Enter or Key.Escape or Key.Tab)
+        {
+            e.Handled = true;
+        }
+
+        if (e.Key == Key.Escape)
+        {
+            viewModel.CancelSessionStep();
+            return;
+        }
+
+        switch (step)
+        {
+            case SessionStep.MovementInput when e.Key == Key.Tab:
+                (MovementAmountBox.IsFocused ? MovementReasonBox : MovementAmountBox).Focus();
+                break;
+
+            case SessionStep.MovementInput when e.Key == Key.Enter && MovementAmountBox.IsFocused:
+                MovementReasonBox.Focus();
+                break;
+
+            case SessionStep.MovementInput when e.Key == Key.Enter:
+                viewModel.ValidateMovement();
+                break;
+
+            case SessionStep.MovementConfirm when e.Key == Key.Enter:
+                await viewModel.ConfirmMovementAsync();
+                break;
+
+            case SessionStep.MovementUnconfirmed when e.Key == Key.Enter:
+                await viewModel.RetryMovementAsync();
+                break;
+        }
+    }
 }
