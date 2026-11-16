@@ -77,6 +77,7 @@ public static class ModuleCatalog
         new(ModuleKeys.Products, "Produits",
             [
                 Permissions.ProductsView, Permissions.ProductsCreate, Permissions.ProductsEdit, Permissions.SalePriceEdit,
+                Permissions.StockAdjust, Permissions.StockTransfer,
             ],
             _ => new ProductsViewModel(), () => new ProductsView()),
 
