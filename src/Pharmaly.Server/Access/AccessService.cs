@@ -1,6 +1,7 @@
 using Dapper;
 using Npgsql;
 using Pharmaly.Contracts;
+using Pharmaly.Server.Stock;
 
 namespace Pharmaly.Server.Access;
 
@@ -117,7 +118,8 @@ public sealed class AccessService(NpgsqlDataSource dataSource)
         var permissions = await ReadEffectivePermissionsAsync(connection, employee.Id, poste.StoreId, transaction);
         await transaction.CommitAsync(cancellationToken);
 
-        return (new EmployeeSignInResponse(token, employee.Id, employee.DisplayName, permissions), null);
+        var sellableLocationId = await SiteLocations.ReadSellableAsync(connection, poste.StoreId);
+        return (new EmployeeSignInResponse(token, employee.Id, employee.DisplayName, permissions, poste.StoreId, sellableLocationId), null);
     }
 
     public async Task SignOutEmployeeAsync(RequestIdentity identity, string employeeToken)
@@ -132,6 +134,12 @@ public sealed class AccessService(NpgsqlDataSource dataSource)
                 connection,
                 new AuditEntry(AuditActions.EmployeeSignedOut, identity.EmployeeId, identity.RegisterAccountId, identity.StoreId));
         }
+    }
+
+    public async Task<Guid?> ReadSellableLocationAsync(Guid storeId)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync();
+        return await SiteLocations.ReadSellableAsync(connection, storeId);
     }
 
     public async Task<IReadOnlyList<string>> ReadEffectivePermissionsAsync(Guid employeeId, Guid storeId)

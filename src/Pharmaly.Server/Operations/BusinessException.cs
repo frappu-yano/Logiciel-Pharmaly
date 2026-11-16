@@ -15,6 +15,12 @@ public class BusinessException(string code, string message, int statusCode = Sta
 
     public ApiError ToApiError() => new(Code, Message);
 
+    /// <summary>
+    /// Corps de la réponse de refus : toujours un code et un message ; un refus peut y ajouter
+    /// des précisions (la liste de ce qui bloque une clôture, par exemple).
+    /// </summary>
+    public virtual object ToErrorBody() => ToApiError();
+
     public static BusinessException Invalid(string message) => new(ApiErrorCodes.InvalidRequest, message);
 
     public static BusinessException NotFound(string message) =>

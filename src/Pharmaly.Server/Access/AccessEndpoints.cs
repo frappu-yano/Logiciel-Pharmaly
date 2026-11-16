@@ -30,7 +30,8 @@ public static class AccessEndpoints
             var identity = context.GetIdentity();
             var permissions = await access.ReadEffectivePermissionsAsync(identity.RequireEmployeeId(), identity.StoreId);
             return Results.Ok(new CurrentIdentityResponse(
-                identity.RegisterName, identity.StoreName, identity.RequireEmployeeId(), identity.EmployeeName!, permissions));
+                identity.RegisterName, identity.StoreName, identity.RequireEmployeeId(), identity.EmployeeName!, permissions,
+                identity.StoreId, await access.ReadSellableLocationAsync(identity.StoreId)));
         }).RequireEmployee();
     }
 }
