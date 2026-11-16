@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Pharmaly.Poste.Modules.Products"
+             x:Class="Pharmaly.Poste.Modules.Products.SalePriceView"
+             x:DataType="local:SalePriceViewModel"
+             Focusable="True">
+  <Border Classes="card" Width="500" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <StackPanel Spacing="14">
+      <TextBlock Text="Changer le prix de vente" FontSize="20" FontWeight="Bold" />
+      <TextBlock Text="{Binding ProductName}" FontWeight="Medium" TextWrapping="Wrap" />
+
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="12" IsEnabled="{Binding IsEditing}">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="label" Text="Prix actuel" />
+          <TextBlock x:Name="CurrentPriceLabel" Text="{Binding CurrentPriceText}" FontSize="20" FontWeight="SemiBold"
+                     Margin="0,8,0,0" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="4">
+          <TextBlock Classes="label" Text="Nouveau prix (DA)" />
+          <TextBox x:Name="NewPriceBox" Text="{Binding NewPrice}" Padding="10,9" FontSize="18" PlaceholderText="0,00" />
+        </StackPanel>
+      </Grid>
+
+      <!-- Confirmation : opération critique -->
+      <Border x:Name="ConfirmationPanel" Classes="message info" IsVisible="{Binding IsConfirming}">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Confirmer le changement de prix ?" FontWeight="SemiBold" />
+          <TextBlock x:Name="ConfirmationLabel" FontSize="18" TextWrapping="Wrap">
+            <Run Text="{Binding CurrentPriceText}" /><Run Text="   →   " /><Run Text="{Binding NewPriceText}" FontWeight="Bold" />
+          </TextBlock>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="message error"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock x:Name="ErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+      </Border>
+
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+        <Button x:Name="CancelButton" Classes="quiet" Content="Annuler (Échap)" Focusable="False" MinHeight="46"
+                HorizontalAlignment="Stretch" IsEnabled="{Binding !IsBusy}" />
+        <Button Grid.Column="1" x:Name="SubmitButton" Classes="primary" Focusable="False"
+                Command="{Binding SubmitCommand}" IsEnabled="{Binding !IsBusy}"
+                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+          <Grid>
+            <TextBlock Text="Valider (Entrée)" IsVisible="{Binding IsEditing}" />
+            <TextBlock Text="Confirmer (Entrée)" IsVisible="{Binding IsConfirming}" />
+          </Grid>
+        </Button>
+      </Grid>
+    </StackPanel>
+  </Border>
+</UserControl>

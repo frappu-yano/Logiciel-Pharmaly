@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Pharmaly.Poste.Modules.Products"
+             x:Class="Pharmaly.Poste.Modules.Products.StockAdjustmentView"
+             x:DataType="local:StockAdjustmentViewModel"
+             Focusable="True">
+  <Border Classes="card" Width="560" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <StackPanel Spacing="12">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <TextBlock Text="Ajuster le stock" FontSize="20" FontWeight="Bold" />
+        <TextBlock Grid.Column="1" Classes="label" Text="F8 : comptée ↔ correction" VerticalAlignment="Center" />
+      </Grid>
+      <TextBlock Text="{Binding ProductName}" FontWeight="Medium" TextWrapping="Wrap" />
+
+      <StackPanel Spacing="12" IsEnabled="{Binding IsEditing}">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="label" Text="Emplacement (↑ ↓ pour choisir)" />
+            <ComboBox x:Name="LocationBox" ItemsSource="{Binding Locations}" SelectedItem="{Binding Location}"
+                      HorizontalAlignment="Stretch" MinHeight="40" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="4" MinWidth="110">
+            <TextBlock Classes="label" Text="Stock actuel" TextAlignment="Right" />
+            <TextBlock x:Name="CurrentStockLabel" Text="{Binding CurrentStockText}" FontSize="20" FontWeight="SemiBold"
+                       TextAlignment="Right" Margin="0,5,0,0" />
+          </StackPanel>
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" Spacing="20">
+          <RadioButton x:Name="CountRadio" GroupName="AdjustmentMode" IsChecked="{Binding IsCount}" Content="Quantité comptée" />
+          <RadioButton x:Name="CorrectionRadio" GroupName="AdjustmentMode" IsChecked="{Binding IsCorrection}"
+                       Content="Correction en plus ou en moins" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="170,*" ColumnSpacing="12">
+          <StackPanel Spacing="4">
+            <TextBlock x:Name="QuantityLabel" Classes="label" Text="{Binding QuantityLabel}" />
+            <TextBox x:Name="QuantityBox" Text="{Binding Quantity}" Padding="10,9" FontSize="18" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="4">
+            <TextBlock Classes="label" Text="Motif (obligatoire)" />
+            <TextBox x:Name="ReasonBox" Text="{Binding Reason}" Padding="10,9" FontSize="18" MaxLength="500"
+                     PlaceholderText="Inventaire, casse, erreur de saisie…" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+
+      <!-- Confirmation : avant → après -->
+      <Border x:Name="ConfirmationPanel" Classes="message info" IsVisible="{Binding IsConfirming}">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Confirmer l'ajustement ?" FontWeight="SemiBold" />
+          <TextBlock x:Name="ConfirmationLabel" FontSize="18" TextWrapping="Wrap">
+            <Run Text="Stock : " /><Run Text="{Binding BeforeText}" /><Run Text="   →   " /><Run Text="{Binding AfterText}"
+                                                                                              FontWeight="Bold" /><Run Text="   (" /><Run
+              Text="{Binding ChangeText}" /><Run Text=")" />
+          </TextBlock>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="message error"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock x:Name="ErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+      </Border>
+
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+        <Button x:Name="CancelButton" Classes="quiet" Content="Annuler (Échap)" Focusable="False" MinHeight="46"
+                HorizontalAlignment="Stretch" IsEnabled="{Binding !IsBusy}" />
+        <Button Grid.Column="1" x:Name="SubmitButton" Classes="primary" Focusable="False"
+                Command="{Binding SubmitCommand}" IsEnabled="{Binding !IsBusy}"
+                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+          <Grid>
+            <TextBlock Text="Valider (Entrée)" IsVisible="{Binding IsEditing}" />
+            <TextBlock Text="Confirmer (Entrée)" IsVisible="{Binding IsConfirming}" />
+          </Grid>
+        </Button>
+      </Grid>
+    </StackPanel>
+  </Border>
+</UserControl>

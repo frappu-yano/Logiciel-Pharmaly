@@ -79,7 +79,9 @@ public static class ModuleCatalog
                 Permissions.ProductsView, Permissions.ProductsCreate, Permissions.ProductsEdit, Permissions.SalePriceEdit,
                 Permissions.StockAdjust, Permissions.StockTransfer,
             ],
-            _ => new ProductsViewModel(), () => new ProductsView()),
+            context => new ProductsViewModel(
+                context.Clients.Catalog, context.Clients.Stock, context.Session.HasPermission, context.SearchDelay),
+            () => new ProductsView()),
 
         new(ModuleKeys.Administration, "Administration",
             [Permissions.UsersAdminister],

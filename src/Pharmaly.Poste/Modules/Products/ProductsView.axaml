@@ -4,13 +4,237 @@
              x:Class="Pharmaly.Poste.Modules.Products.ProductsView"
              x:DataType="local:ProductsViewModel"
              Focusable="True">
-  <!-- État vide : à remplacer par l'écran du module. -->
-  <Border Classes="card empty">
-    <StackPanel Spacing="8">
-      <TextBlock Classes="emptyTitle" Text="Produits" />
-      <TextBlock x:Name="EmptyStateLabel" Classes="emptyState" Text="Module en cours de développement" />
-      <TextBlock Classes="label" TextAlignment="Center" TextWrapping="Wrap"
-                 Text="Aucune opération n'est possible ici pour l'instant." />
-    </StackPanel>
-  </Border>
+  <UserControl.Styles>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,16,0,6" />
+    </Style>
+    <Style Selector="TextBlock.number">
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Border.row">
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="0,1,0,0" />
+      <Setter Property="Padding" Value="0,7" />
+    </Style>
+  </UserControl.Styles>
+  <Grid>
+    <DockPanel x:Name="MainArea" Margin="20,16,20,16" IsEnabled="{Binding !HasActiveForm}">
+
+      <!-- Réponse du serveur : refus (tel que le serveur le formule) ou confirmation -->
+      <Border DockPanel.Dock="Bottom" Classes="message error" Margin="0,12,0,0"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock x:Name="ErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+      </Border>
+      <Border DockPanel.Dock="Bottom" Classes="message info" Margin="0,12,0,0"
+              IsVisible="{Binding InfoMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock x:Name="InfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+      </Border>
+
+      <Grid ColumnDefinitions="370,*" ColumnSpacing="16">
+
+        <!-- Recherche et résultats -->
+        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12">
+          <Border Classes="card" Padding="14">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="label" Text="Scanner un code-barres ou saisir un nom, puis Entrée" />
+              <TextBox x:Name="SearchBox" Text="{Binding Lookup.Query}" FontSize="17" Padding="12,10"
+                       PlaceholderText="Code-barres, nom ou code interne" IsEnabled="{Binding CanView}" />
+              <TextBlock x:Name="NoticeLabel" Text="{Binding Lookup.Notice}" Foreground="#9A4A12" FontSize="13" TextWrapping="Wrap"
+                         IsVisible="{Binding Lookup.Notice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock x:Name="NoViewRightLabel" Text="{x:Static local:ProductsViewModel.NoViewRightMessage}"
+                         Foreground="#9A4A12" FontSize="13" TextWrapping="Wrap" IsVisible="{Binding !CanView}" />
+            </StackPanel>
+          </Border>
+
+          <Border Grid.Row="1" Classes="card" Padding="0">
+            <DockPanel>
+              <Border DockPanel.Dock="Top" Padding="14,10" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Résultats" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Classes="label" Text="↑ ↓ puis Entrée" VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+              <Grid>
+                <TextBlock Classes="label" Text="Les produits trouvés s'affichent ici." IsVisible="{Binding !Lookup.HasResults}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <ListBox x:Name="ResultsList" ItemsSource="{Binding Lookup.Results}" SelectedItem="{Binding Lookup.SelectedResult}"
+                         Background="Transparent" Focusable="False" IsVisible="{Binding Lookup.HasResults}">
+                  <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                      <Setter Property="Padding" Value="14,8" />
+                      <Setter Property="Focusable" Value="False" />
+                    </Style>
+                  </ListBox.Styles>
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="local:ProductRowViewModel">
+                      <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="1">
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontWeight="Medium" />
+                        <TextBlock Grid.Column="1" Text="{Binding PriceText}" FontWeight="SemiBold" TextAlignment="Right" />
+                        <TextBlock Grid.Row="1" Text="{Binding BarcodeText}" Classes="label" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Classes="label" TextAlignment="Right">
+                          <Run Text="Stock " /><Run Text="{Binding StockText}" FontWeight="SemiBold"
+                                                    Foreground="{StaticResource InkBrush}" />
+                        </TextBlock>
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </Grid>
+            </DockPanel>
+          </Border>
+
+          <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
+            <Button x:Name="CreateButton" Classes="quiet" Content="Nouveau produit (Ctrl+N)" Focusable="False"
+                    Command="{Binding StartCreateCommand}" IsVisible="{Binding CanCreate}"
+                    HorizontalAlignment="Stretch" />
+            <Button Grid.Column="1" x:Name="TransferButton" Classes="quiet" Content="Transfert (F10)" Focusable="False"
+                    Command="{Binding StartTransferCommand}" IsVisible="{Binding CanTransfer}"
+                    HorizontalAlignment="Stretch" />
+          </Grid>
+        </Grid>
+
+        <!-- Fiche du produit -->
+        <Border Grid.Column="1" Classes="card" Padding="0">
+          <Grid>
+            <StackPanel IsVisible="{Binding !HasDetail}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+              <TextBlock x:Name="EmptyDetailLabel" Classes="emptyState" Text="Aucun produit affiché" />
+              <TextBlock Classes="label" TextAlignment="Center" Text="Cherchez un produit puis validez avec Entrée." />
+            </StackPanel>
+            <DockPanel IsVisible="{Binding HasDetail}">
+
+              <!-- En-tête -->
+              <Border DockPanel.Dock="Top" Padding="16,12" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                <StackPanel Spacing="10">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                      <TextBlock x:Name="DetailNameLabel" Text="{Binding Detail.Name}" FontSize="18" FontWeight="SemiBold"
+                                 TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                      <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Classes="label" Text="{Binding Detail.CodeText}" VerticalAlignment="Center" />
+                        <Border Classes="state" Classes.active="{Binding Detail.IsActive}">
+                          <TextBlock x:Name="DetailStateLabel" Text="{Binding Detail.StateText}" FontSize="12" FontWeight="Medium" />
+                        </Border>
+                      </StackPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                      <TextBlock Classes="label" Text="Prix de vente" TextAlignment="Right" />
+                      <TextBlock x:Name="DetailPriceLabel" Text="{Binding Detail.PriceText}" FontSize="24" FontWeight="Bold"
+                                 TextAlignment="Right" />
+                    </StackPanel>
+                  </Grid>
+                  <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasDetailActions}">
+                    <Button x:Name="EditButton" Classes="quiet" Content="Modifier (F7)" Focusable="False"
+                            Command="{Binding StartEditCommand}" IsVisible="{Binding CanEdit}" />
+                    <Button x:Name="PriceButton" Classes="quiet" Content="Changer le prix (F8)" Focusable="False"
+                            Command="{Binding StartPriceChangeCommand}" IsVisible="{Binding CanChangePrice}" />
+                    <Button x:Name="AdjustButton" Classes="quiet" Content="Ajuster le stock (F9)" Focusable="False"
+                            Command="{Binding StartAdjustmentCommand}" IsVisible="{Binding CanAdjust}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <ScrollViewer x:Name="DetailScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="16,12,16,16">
+
+                  <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="5">
+                    <TextBlock Classes="label" Text="Marque" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" x:Name="DetailBrandLabel" Text="{Binding Detail.BrandText}" />
+                    <TextBlock Grid.Row="1" Classes="label" Text="Catégorie" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Detail.CategoryText}" />
+                    <TextBlock Grid.Row="2" Classes="label" Text="Vendu à l'unité" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Detail.UnitText}" />
+                    <TextBlock Grid.Row="3" Classes="label" Text="Codes-barres" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="DetailBarcodesLabel" Text="{Binding Detail.BarcodesText}"
+                               TextWrapping="Wrap" />
+                  </Grid>
+
+                  <!-- Stock par emplacement -->
+                  <TextBlock Classes="section" Text="Stock par emplacement" />
+                  <Grid ColumnDefinitions="*,120,80" ColumnSpacing="10" Margin="0,0,0,5">
+                    <TextBlock Classes="label" Text="Emplacement" />
+                    <TextBlock Grid.Column="1" Classes="label" Text="Nature" />
+                    <TextBlock Grid.Column="2" Classes="label" Text="Quantité" TextAlignment="Right" />
+                  </Grid>
+                  <ItemsControl x:Name="StockPanel" ItemsSource="{Binding Detail.Stock}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="local:StockLineViewModel">
+                        <Border Classes="row">
+                          <Grid ColumnDefinitions="*,120,80" ColumnSpacing="10">
+                            <TextBlock TextTrimming="CharacterEllipsis">
+                              <Run Text="{Binding LocationName}" /><Run Text="  ·  " Foreground="{StaticResource MutedBrush}" /><Run
+                                Text="{Binding StoreName}" Foreground="{StaticResource MutedBrush}" />
+                            </TextBlock>
+                            <TextBlock Grid.Column="1" Text="{Binding KindText}" Classes="label" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="{Binding QuantityText}" Classes="number" />
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                  <!-- Historique des prix de vente -->
+                  <TextBlock Classes="section" Text="Historique des prix de vente" />
+                  <Grid ColumnDefinitions="125,*,110,110" ColumnSpacing="10" Margin="0,0,0,5">
+                    <TextBlock Classes="label" Text="Date" />
+                    <TextBlock Grid.Column="1" Classes="label" Text="Employé" />
+                    <TextBlock Grid.Column="2" Classes="label" Text="Ancien prix" TextAlignment="Right" />
+                    <TextBlock Grid.Column="3" Classes="label" Text="Nouveau prix" TextAlignment="Right" />
+                  </Grid>
+                  <ItemsControl x:Name="PricesPanel" ItemsSource="{Binding Detail.Prices}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="local:PriceLineViewModel">
+                        <Border Classes="row">
+                          <Grid ColumnDefinitions="125,*,110,110" ColumnSpacing="10">
+                            <TextBlock Text="{Binding DateText}" />
+                            <TextBlock Grid.Column="1" Text="{Binding EmployeeName}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="2" Text="{Binding OldPriceText}" TextAlignment="Right"
+                                       Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock Grid.Column="3" Text="{Binding NewPriceText}" Classes="number" />
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                  <!-- Derniers mouvements -->
+                  <TextBlock Classes="section" Text="Derniers mouvements de stock" />
+                  <Grid ColumnDefinitions="125,*,70,70" ColumnSpacing="10" Margin="0,0,0,5">
+                    <TextBlock Classes="label" Text="Date" />
+                    <TextBlock Grid.Column="1" Classes="label" Text="Mouvement" />
+                    <TextBlock Grid.Column="2" Classes="label" Text="Quantité" TextAlignment="Right" />
+                    <TextBlock Grid.Column="3" Classes="label" Text="Solde" TextAlignment="Right" />
+                  </Grid>
+                  <TextBlock Classes="label" Text="Aucun mouvement pour ce produit." IsVisible="{Binding Detail.HasNoMovement}"
+                             Margin="0,4,0,0" />
+                  <ItemsControl x:Name="MovementsPanel" ItemsSource="{Binding Detail.Movements}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="local:MovementLineViewModel">
+                        <Border Classes="row">
+                          <Grid ColumnDefinitions="125,*,70,70" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="1">
+                            <TextBlock Text="{Binding DateText}" />
+                            <TextBlock Grid.Column="1" Text="{Binding TypeText}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="2" Text="{Binding QuantityText}" Classes="number" />
+                            <TextBlock Grid.Column="3" Text="{Binding BalanceText}" TextAlignment="Right" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding ContextText}" Classes="label"
+                                       TextWrapping="Wrap" />
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </ScrollViewer>
+            </DockPanel>
+          </Grid>
+        </Border>
+      </Grid>
+    </DockPanel>
+
+    <!-- Formulaire ouvert par-dessus l'écran ; la vue est placée par le code -->
+    <Border x:Name="FormPanel" Background="#99111111" IsVisible="{Binding HasActiveForm}" ZIndex="10">
+      <ContentControl x:Name="FormHost" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+    </Border>
+  </Grid>
 </UserControl>
