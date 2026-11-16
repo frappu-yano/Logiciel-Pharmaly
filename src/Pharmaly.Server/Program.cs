@@ -2,10 +2,14 @@ using System.Reflection;
 using Npgsql;
 using Pharmaly.Contracts;
 using Pharmaly.Server.Access;
+using Pharmaly.Server.Cash;
 using Pharmaly.Server.Catalog;
+using Pharmaly.Server.Customers;
 using Pharmaly.Server.Database;
 using Pharmaly.Server.Maintenance;
 using Pharmaly.Server.Operations;
+using Pharmaly.Server.Receivables;
+using Pharmaly.Server.Sales;
 using Pharmaly.Server.Stock;
 
 const string DemoDataArgument = "--donnees-fictives";
@@ -138,6 +142,10 @@ app.MapStockEndpoints();
 app.MapAccessEndpoints();
 app.MapEmployeeAdminEndpoints();
 app.MapStoreEndpoints();
+app.MapCashEndpoints();
+app.MapSaleEndpoints();
+app.MapCustomerEndpoints();
+app.MapReceivableEndpoints();
 
 await app.RunAsync();
 
