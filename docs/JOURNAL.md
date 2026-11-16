@@ -141,6 +141,17 @@ dans `DECISIONS.md`), à valider. Le mode secours hors ligne (O4) n'est pas dév
 - Fusionné : écran Produits (416 tests réussis).
 - **Deuxième interruption** par la limite d'usage vers 12 h UTC, pendant l'écran de vente,
   l'écran des bons et les retours/clôture côté serveur. Reprise à 14 h 40 UTC.
+- Fusionnés après la reprise :
+  - écran de saisie des bons fournisseurs (488 tests) ;
+  - écran de vente (609 tests ; faux serveur des tests unifié : un seul stock) ;
+  - retours clients, clôture quotidienne et compléments du catalogue, côté serveur
+    (644 tests). Les commits de cet agent avaient été refusés par le contrôle automatique
+    des permissions ; ils ont été faits par le coordinateur **avec l'accord explicite de la
+    direction**, après relecture.
+- Corrigé : un verrouillage volontaire du poste libère aussitôt les bons fournisseurs
+  tenus depuis ce poste (D39). **645 tests réussis.**
+- Choix par défaut ajoutés : D32 à D39.
+
 
 ## 13/11/2026 — Prototype
 

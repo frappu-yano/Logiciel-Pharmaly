@@ -509,6 +509,26 @@ public sealed class SupplierNoteTests(ServerFixture server) : IClassFixture<Serv
     // ---------- Verrou ----------
 
     [Fact]
+    public async Task La_fin_de_session_de_l_employe_libere_aussitot_les_bons_qu_il_tenait_depuis_ce_poste()
+    {
+        var location = await stock.MainLocationAsync();
+        var (first, firstId) = await stock.CreateEmployeeClientAsync(AllNoteRights);
+        var (second, _) = await stock.CreateEmployeeClientAsync(AllNoteRights);
+        var note = await notes.CreateNoteAsync(first, location);
+        Assert.Equal(firstId, note.Note.Lock!.EmployeeId);
+
+        // Verrouillage du poste : l'employé met fin à sa session.
+        Assert.Equal(HttpStatusCode.NoContent, (await first.PostAsync(ApiRoutes.EmployeeSignOut, null)).StatusCode);
+
+        var free = await Kit.ReadNoteAsync(second, note.Note.Id);
+        Assert.Null(free.Note.Lock);
+
+        // Le collègue prend le bon tout de suite, sans attendre la fin du bail.
+        var taken = await Kit.ReadAsync<SupplierNoteDetail>(await Kit.AcquireAsync(second, note.Note.Id));
+        Assert.True(taken.Note.Lock!.HeldByMe);
+    }
+
+    [Fact]
     public async Task Un_second_employe_est_refuse_tant_que_le_premier_tient_le_bon_et_le_message_le_nomme()
     {
         var location = await stock.MainLocationAsync();
@@ -612,7 +632,7 @@ public sealed class SupplierNoteTests(ServerFixture server) : IClassFixture<Serv
     }
 
     [Fact]
-    public async Task Le_meme_employe_reprend_son_bon_apres_deconnexion_meme_depuis_un_autre_poste()
+    public async Task Le_meme_employe_reprend_son_bon_apres_une_coupure_de_son_poste_meme_depuis_un_autre_poste()
     {
         var location = await stock.MainLocationAsync();
         var product = await stock.CreateProductAsync();
@@ -621,8 +641,8 @@ public sealed class SupplierNoteTests(ServerFixture server) : IClassFixture<Serv
         var note = await notes.CreateNoteAsync(firstPoste, location);
         await Kit.AddLineOkAsync(firstPoste, note.Note.Id, product.Id, 15);
 
-        // Déconnexion sans libérer le bon, puis identification sur un autre poste.
-        (await firstPoste.PostAsync(ApiRoutes.EmployeeSignOut, null)).EnsureSuccessStatusCode();
+        // Le premier poste est coupé (réseau, panne) sans fin de session : le bon reste
+        // réservé à l'employé, qui s'identifie sur un autre poste.
         var secondPoste = await server.CreatePosteClientAsync();
         await ServerFixture.IdentifyAsync(secondPoste, number, Kit.EmployeeSecret);
 

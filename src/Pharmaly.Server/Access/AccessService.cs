@@ -125,15 +125,33 @@ public sealed class AccessService(NpgsqlDataSource dataSource)
     public async Task SignOutEmployeeAsync(RequestIdentity identity, string employeeToken)
     {
         await using var connection = await dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
         var ended = await connection.ExecuteAsync(
             "UPDATE employee_sessions SET ended_at = now() WHERE token_hash = @hash AND ended_at IS NULL",
-            new { hash = Secrets.TokenFingerprint(employeeToken) });
+            new { hash = Secrets.TokenFingerprint(employeeToken) },
+            transaction);
         if (ended > 0)
         {
+            // Les bons fournisseurs que l'employé tenait depuis ce poste sont libérés aussitôt :
+            // un collègue peut les reprendre sans attendre la fin du bail.
+            var releasedNotes = (await connection.QueryAsync<Guid>(
+                """
+                UPDATE supplier_notes
+                SET lock_employee_id = NULL, lock_register_account_id = NULL, lock_acquired_at = NULL, lock_expires_at = NULL
+                WHERE lock_employee_id = @EmployeeId AND lock_register_account_id = @RegisterAccountId
+                RETURNING id
+                """,
+                new { identity.EmployeeId, identity.RegisterAccountId },
+                transaction)).AsList();
             await AuditLog.WriteAsync(
                 connection,
-                new AuditEntry(AuditActions.EmployeeSignedOut, identity.EmployeeId, identity.RegisterAccountId, identity.StoreId));
+                new AuditEntry(
+                    AuditActions.EmployeeSignedOut, identity.EmployeeId, identity.RegisterAccountId, identity.StoreId,
+                    Details: new { bonsLiberes = releasedNotes }),
+                transaction);
         }
+
+        await transaction.CommitAsync();
     }
 
     public async Task<Guid?> ReadSellableLocationAsync(Guid storeId)

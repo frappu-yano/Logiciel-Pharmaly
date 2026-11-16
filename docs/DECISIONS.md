@@ -96,6 +96,15 @@ ou constante nommée) pour que le changement soit simple.
 | D30 | Verrou d'un bon | Il appartient à l'employé, qui peut reprendre son bon depuis un autre poste ; bail de 2 minutes renouvelé tant que l'écran est ouvert |
 | D31 | Chiffrement | Certificat du serveur approuvé une fois par poste (F8) ; changer de serveur exige une action volontaire (`--oublier-serveur`) |
 
+| D32 | Retour sur une vente impayée | Refusé tant que la créance est ouverte : annuler la vente, ou la régler entièrement puis faire le retour. La créance n'est jamais réduite, pour ne pas contourner l'interdiction du règlement partiel |
+| D33 | Remboursement d'un retour | Calculé par le serveur au prorata de ce qui a été payé (remise déduite) ; un ticket entièrement retourné rembourse exactement son total, jamais plus |
+| D34 | Vente ayant déjà un retour | Ne peut plus être annulée ; le reste passe par d'autres retours |
+| D35 | Retour et caisse | Tout retour exige une caisse ouverte sur le poste, pour qu'aucun retour n'échappe à la clôture |
+| D36 | Motifs de retour | Administrés avec le droit « administrer les utilisateurs », faute de droit dédié |
+| D37 | Clôture forcée malgré des opérations hors ligne inconnues | Exige « clôturer une caisse » ET « administrer les utilisateurs », plus un motif ; auditée et signalée dans le rapport |
+| D38 | Chiffre d'affaires et retours | Les retours sont déduits du chiffre d'affaires du jour où ils sont faits ; un impayé réglé le jour même apparaît à part des anciennes créances |
+| D39 | Verrou d'un bon et verrouillage du poste | Un verrouillage volontaire (F12 ou inactivité) libère aussitôt les bons tenus depuis ce poste ; une coupure du poste les laisse réservés à l'employé |
+
 **Non décidé et donc NON développé : le mode secours hors ligne (O4).** La direction a
 demandé explicitement de ne pas choisir sans son accord. Le code le prépare (identifiants
 générés par le poste, idempotence) mais aucune vente hors ligne n'est possible.
