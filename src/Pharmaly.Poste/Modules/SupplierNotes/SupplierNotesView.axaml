@@ -1,16 +1,451 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:Pharmaly.Poste.Modules.SupplierNotes"
+             xmlns:contracts="using:Pharmaly.Contracts"
              x:Class="Pharmaly.Poste.Modules.SupplierNotes.SupplierNotesView"
              x:DataType="local:SupplierNotesViewModel"
              Focusable="True">
-  <!-- État vide : à remplacer par l'écran du module. -->
-  <Border Classes="card empty">
-    <StackPanel Spacing="8">
-      <TextBlock Classes="emptyTitle" Text="Bons fournisseurs" />
-      <TextBlock x:Name="EmptyStateLabel" Classes="emptyState" Text="Module en cours de développement" />
-      <TextBlock Classes="label" TextAlignment="Center" TextWrapping="Wrap"
-                 Text="Aucune opération n'est possible ici pour l'instant." />
-    </StackPanel>
-  </Border>
+  <UserControl.Styles>
+    <!-- Tableaux denses : les chiffres sont alignés à droite, en-têtes et lignes sur les mêmes colonnes. -->
+    <Style Selector="ListBox.rows ListBoxItem">
+      <Setter Property="Padding" Value="12,6" />
+    </Style>
+    <Style Selector="TextBlock.head">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="TextBlock.num">
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.cell">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="Grid.cancelled">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="TextBox.entry">
+      <Setter Property="FontSize" Value="17" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="MinHeight" Value="42" />
+    </Style>
+    <Style Selector="TextBox.field">
+      <Setter Property="Padding" Value="10,9" />
+    </Style>
+    <Style Selector="Border.margindrop">
+      <Setter Property="Background" Value="{StaticResource PeachSoftBrush}" />
+    </Style>
+    <Style Selector="Border.warn">
+      <Setter Property="Background" Value="{StaticResource PeachBrush}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="14,10" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid>
+
+    <!-- ============================== Liste des bons ============================== -->
+    <DockPanel x:Name="ListScreen" IsVisible="{Binding IsList}" Margin="20,14,20,14">
+
+      <Border DockPanel.Dock="Bottom" Classes="message error" Margin="0,10,0,0"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock x:Name="ListErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+      </Border>
+      <Border DockPanel.Dock="Bottom" Classes="message info" Margin="0,10,0,0"
+              IsVisible="{Binding InfoMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock x:Name="ListInfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+      </Border>
+
+      <!-- Filtres -->
+      <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto" ColumnSpacing="8" Margin="0,0,0,10">
+        <ComboBox x:Name="StatusFilter" ItemsSource="{Binding StatusChoices}" SelectedItem="{Binding SelectedStatus}"
+                  Width="150" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" x:Name="SupplierFilter" ItemsSource="{Binding SupplierChoices}"
+                  SelectedItem="{Binding SelectedSupplier}" Width="210" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="2" Classes="label" Text="du" VerticalAlignment="Center" />
+        <TextBox Grid.Column="3" x:Name="FromBox" Text="{Binding FromText}" Width="112" PlaceholderText="jj/mm/aaaa"
+                 Padding="8,7" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="4" Classes="label" Text="au" VerticalAlignment="Center" />
+        <TextBox Grid.Column="5" x:Name="ToBox" Text="{Binding ToText}" Width="112" PlaceholderText="jj/mm/aaaa"
+                 Padding="8,7" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="6" x:Name="CountLabel" Classes="label" Text="{Binding CountText}" VerticalAlignment="Center"
+                   Margin="6,0,0,0" TextTrimming="CharacterEllipsis" />
+        <Button Grid.Column="7" x:Name="NewNoteButton" Classes="primary" Content="Nouveau bon (Ctrl+N)" Focusable="False"
+                IsVisible="{Binding CanCreateNote}" Click="OnNewNoteClick" MinHeight="40" Padding="16,8" />
+      </Grid>
+
+      <!-- Aide clavier et pages -->
+      <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+        <TextBlock Classes="label" TextTrimming="CharacterEllipsis"
+                   Text="↑ ↓ choisir · Entrée ouvrir · Ctrl+F filtres (Entrée applique) · Ctrl+R actualiser" />
+        <TextBlock Grid.Column="1" Classes="label" IsVisible="{Binding HasSeveralPages}">
+          <Run Text="{Binding PageText}" /><Run Text=" · Ctrl+PgSuiv / Ctrl+PgPréc" />
+        </TextBlock>
+      </Grid>
+
+      <Border Classes="card" Padding="0">
+        <DockPanel>
+          <Border DockPanel.Dock="Top" Padding="12,8" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="50,88,*,92,150,56,130" ColumnSpacing="10">
+              <TextBlock Classes="head num" Text="N°" />
+              <TextBlock Grid.Column="1" Classes="head" Text="Date" />
+              <TextBlock Grid.Column="2" Classes="head" Text="Fournisseur · référence · emplacement" />
+              <TextBlock Grid.Column="3" Classes="head" Text="État" />
+              <TextBlock Grid.Column="4" Classes="head" Text="Saisie en cours" />
+              <TextBlock Grid.Column="5" Classes="head num" Text="Lignes" />
+              <TextBlock Grid.Column="6" Classes="head num" Text="Total d'achat" />
+            </Grid>
+          </Border>
+          <Grid>
+            <TextBlock Classes="emptyState" Text="Aucun bon ne correspond à ces filtres" IsVisible="{Binding IsEmpty}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <ListBox x:Name="NotesList" Classes="rows" ItemsSource="{Binding Notes}" SelectedItem="{Binding SelectedNote}"
+                     Background="Transparent" DoubleTapped="OnNoteDoubleTapped">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:NoteRowViewModel">
+                  <Grid ColumnDefinitions="50,88,*,92,150,56,130" ColumnSpacing="10" Classes.cancelled="{Binding IsCancelled}">
+                    <TextBlock Classes="num" Text="{Binding NumberText}" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="1" Classes="cell" Text="{Binding DateText}" />
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                      <TextBlock Classes="cell" Text="{Binding SupplierName}" FontWeight="Medium" />
+                      <TextBlock Classes="label" FontSize="12.5" TextTrimming="CharacterEllipsis">
+                        <Run Text="Réf. " /><Run Text="{Binding Reference}" /><Run Text=" · " /><Run Text="{Binding LocationName}" />
+                      </TextBlock>
+                    </StackPanel>
+                    <Border Grid.Column="3" Classes="state" Classes.active="{Binding IsInProgress}" HorizontalAlignment="Left">
+                      <TextBlock Text="{Binding StatusText}" FontSize="12" FontWeight="Medium" />
+                    </Border>
+                    <TextBlock Grid.Column="4" Classes="cell label" Text="{Binding LockText}" />
+                    <TextBlock Grid.Column="5" Classes="num" Text="{Binding LineCountText}" />
+                    <TextBlock Grid.Column="6" Classes="num" Text="{Binding TotalText}" FontWeight="SemiBold" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
+        </DockPanel>
+      </Border>
+    </DockPanel>
+
+    <!-- ============================== Nouveau bon ============================== -->
+    <Panel IsVisible="{Binding IsNewNote}">
+      <Border x:Name="NewNoteScreen" Classes="card" Width="600" Padding="22,18" HorizontalAlignment="Center" VerticalAlignment="Center"
+              DataContext="{Binding NewNote}" x:DataType="local:NewNoteViewModel">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Nouveau bon" FontSize="20" FontWeight="Bold" />
+            <TextBlock Grid.Column="1" Classes="label" Text="Entrée : champ suivant · Échap : retour à la liste"
+                       VerticalAlignment="Center" />
+          </Grid>
+
+          <StackPanel Spacing="4">
+            <TextBlock Classes="label" Text="Fournisseur" />
+            <TextBox x:Name="SupplierBox" Classes="field" Text="{Binding SupplierText}" PlaceholderText="Nom du fournisseur" />
+            <TextBlock x:Name="SupplierHintLabel" Classes="label" FontSize="12.5" Text="{Binding SupplierHint}" TextWrapping="Wrap" />
+            <Border BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="8" MaxHeight="126"
+                    IsVisible="{Binding HasSuggestions}">
+              <ListBox x:Name="SuggestionsList" Classes="rows" ItemsSource="{Binding Suggestions}"
+                       SelectedItem="{Binding SelectedSuggestion}" Background="Transparent" Focusable="False">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="contracts:SupplierSummary">
+                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Classes="label" Text="Emplacement où entre la marchandise (↑ ↓ pour changer)" />
+            <ComboBox x:Name="LocationBox" ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation}"
+                      HorizontalAlignment="Stretch" MinHeight="40" />
+          </StackPanel>
+
+          <Grid ColumnDefinitions="*,170" ColumnSpacing="12">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" Text="Référence du fournisseur (bon de livraison, facture)" />
+              <TextBox x:Name="ReferenceBox" Classes="field" Text="{Binding Reference}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="4">
+              <TextBlock Classes="label" Text="Date du bon" />
+              <TextBox x:Name="DateBox" Classes="field" Text="{Binding DateText}" PlaceholderText="jj/mm/aaaa" />
+            </StackPanel>
+          </Grid>
+
+          <Border Classes="message error"
+                  IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock x:Name="NewNoteErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+          </Border>
+
+          <Button x:Name="CreateNoteButton" Classes="primary" Content="Créer le bon et commencer la saisie (Entrée)"
+                  Focusable="False" Click="OnCreateNoteClick" IsEnabled="{Binding !IsBusy}"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+        </StackPanel>
+      </Border>
+    </Panel>
+
+    <!-- ============================== Saisie d'un bon ============================== -->
+    <Panel IsVisible="{Binding IsNote}">
+      <Grid x:Name="NoteScreen" DataContext="{Binding Entry}" x:DataType="local:NoteEntryViewModel">
+        <DockPanel x:Name="NotePanel" Margin="20,12,20,12" IsEnabled="{Binding !IsOverlayOpen}">
+
+          <!-- En-tête du bon -->
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,8">
+            <StackPanel Spacing="1" VerticalAlignment="Center">
+              <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10">
+                <TextBlock x:Name="NoteTitleLabel" Text="{Binding Title}" FontSize="18" FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis" />
+                <Border Grid.Column="1" Classes="state" Classes.active="{Binding IsInProgress}">
+                  <TextBlock x:Name="NoteStatusLabel" Text="{Binding StatusText}" FontSize="12" FontWeight="Medium" />
+                </Border>
+              </Grid>
+              <TextBlock x:Name="NoteDetailsLabel" Classes="label" Text="{Binding Details}" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <Button x:Name="HistoryButton" Classes="quiet" Content="Historique (F7)" Focusable="False" Click="OnHistoryClick"
+                      MinHeight="38" Padding="12,7" />
+              <Button x:Name="CancelNoteButton" Classes="quiet" Content="Annuler le bon (Ctrl+Suppr)" Focusable="False"
+                      IsVisible="{Binding CanCancelNote}" Click="OnCancelNoteClick" MinHeight="38" Padding="12,7" />
+              <Button x:Name="ValidateButton" Classes="primary" Content="Valider le bon (F9)" Focusable="False"
+                      IsVisible="{Binding CanValidate}" Click="OnValidateClick" MinHeight="38" Padding="14,7" />
+            </StackPanel>
+          </Grid>
+
+          <!-- Lecture seule : le message du serveur nomme l'employé qui tient le bon -->
+          <Border DockPanel.Dock="Top" Classes="message error" Margin="0,0,0,8" IsVisible="{Binding IsReadOnly}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock x:Name="ReadOnlyLabel" Text="{Binding ReadOnlyText}" TextWrapping="Wrap" FontWeight="Medium"
+                         VerticalAlignment="Center" />
+              <Button Grid.Column="1" x:Name="RetakeButton" Classes="quiet" Content="Reprendre le bon (F8)" Focusable="False"
+                      IsVisible="{Binding CanRetake}" Click="OnRetakeClick" MinHeight="36" Padding="12,6" />
+            </Grid>
+          </Border>
+
+          <!-- Pied de bon -->
+          <Border DockPanel.Dock="Bottom" Margin="0,8,0,0">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="18">
+              <TextBlock Classes="label" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                         Text="Entrée valide · ↑ lignes (Entrée modifier, Suppr annuler) · Échap abandonne puis quitte le bon" />
+              <TextBlock Grid.Column="1" x:Name="LineCountLabel" Text="{Binding LineCountText}" FontWeight="Medium"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="2" VerticalAlignment="Center">
+                <Run Text="Total d'achat  " Foreground="{StaticResource MutedBrush}" FontSize="13" />
+                <Run x:Name="NoteTotalRun" Text="{Binding TotalText}" FontSize="19" FontWeight="Bold" />
+              </TextBlock>
+            </Grid>
+          </Border>
+
+          <!-- Réponses du serveur -->
+          <Border DockPanel.Dock="Bottom" Classes="message error" Margin="0,8,0,0"
+                  IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock x:Name="NoteErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+          </Border>
+          <Border DockPanel.Dock="Bottom" Classes="message info" Margin="0,8,0,0"
+                  IsVisible="{Binding InfoMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock x:Name="NoteInfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+          </Border>
+
+          <!-- Ligne en cours de saisie -->
+          <Border DockPanel.Dock="Top" Classes="card" Padding="14,10,14,8" IsVisible="{Binding HasLineRight}">
+            <Grid ColumnDefinitions="230,*,104,150" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="3">
+              <TextBlock Classes="label" Text="Code-barres ou nom" />
+              <TextBlock Grid.Column="1" x:Name="EntryTitleLabel" Classes="label" Text="{Binding EntryTitle}" />
+              <TextBlock Grid.Column="2" Classes="label" Text="Quantité" TextAlignment="Right" />
+              <TextBlock Grid.Column="3" Classes="label" Text="Prix d'achat (DA)" TextAlignment="Right" />
+
+              <TextBox Grid.Row="1" x:Name="BarcodeBox" Classes="entry" Text="{Binding BarcodeText}"
+                       IsEnabled="{Binding CanScan}" PlaceholderText="Scanner…" />
+              <TextBlock Grid.Row="1" Grid.Column="1" x:Name="ProductLabel" Text="{Binding ProductTitle}" FontSize="16"
+                         FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                         Classes.label="{Binding !HasProduct}" />
+              <TextBox Grid.Row="1" Grid.Column="2" x:Name="QuantityBox" Classes="entry" Text="{Binding QuantityText}"
+                       IsEnabled="{Binding CanType}" TextAlignment="Right" />
+              <TextBox Grid.Row="1" Grid.Column="3" x:Name="PriceBox" Classes="entry" Text="{Binding PriceText}"
+                       IsEnabled="{Binding CanType}" TextAlignment="Right" />
+
+              <Grid Grid.Row="2" Grid.ColumnSpan="4" ColumnDefinitions="*,Auto" ColumnSpacing="12" MinHeight="19">
+                <TextBlock x:Name="ProductDetailsLabel" Classes="label" Text="{Binding ProductDetails}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1" x:Name="StockLabel" Text="{Binding StockText}" FontSize="13" FontWeight="SemiBold" />
+              </Grid>
+            </Grid>
+          </Border>
+
+          <!-- Produits trouvés par leur nom -->
+          <Border DockPanel.Dock="Top" Classes="card" Padding="0" Margin="0,6,0,0" MaxHeight="176"
+                  IsVisible="{Binding HasSearchResults}">
+            <ListBox x:Name="SearchResultsList" Classes="rows" ItemsSource="{Binding SearchResults}"
+                     SelectedItem="{Binding SelectedSearchResult}" Background="Transparent" Focusable="False">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="contracts:ProductSummary">
+                  <Grid ColumnDefinitions="*,130" ColumnSpacing="12">
+                    <TextBlock Classes="cell" Text="{Binding Name}" />
+                    <TextBlock Grid.Column="1" Classes="cell label" Text="{Binding Barcode}" TextAlignment="Right" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Border>
+
+          <!-- Écriture restée sans réponse : jamais d'ambiguïté sur ce qui est entré en stock -->
+          <Border DockPanel.Dock="Top" Classes="warn" Margin="0,8,0,0" IsVisible="{Binding HasUnconfirmedWrite}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock x:Name="UnconfirmedLabel" Text="{Binding UnconfirmedMessage}" TextWrapping="Wrap" FontWeight="SemiBold"
+                         VerticalAlignment="Center" />
+              <Button Grid.Column="1" x:Name="RetryButton" Classes="quiet" Content="Réessayer (Entrée)" Focusable="False"
+                      Click="OnRetryClick" IsEnabled="{Binding !IsSending}" />
+            </Grid>
+          </Border>
+
+          <!-- Effet de la dernière ligne : stock avant → après, variation de marge -->
+          <Border DockPanel.Dock="Top" x:Name="OutcomePanel" Classes="message" Margin="0,8,0,0" Padding="14,7"
+                  IsVisible="{Binding HasLastOutcome}"
+                  Classes.error="{Binding LastOutcome.MarginDropped}" Classes.info="{Binding !LastOutcome.MarginDropped}">
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="1">
+              <TextBlock x:Name="OutcomeTitleLabel" Text="{Binding LastOutcome.Title}" FontWeight="SemiBold"
+                         TextTrimming="CharacterEllipsis" />
+              <TextBlock Grid.Column="1" x:Name="OutcomeStockLabel" Text="{Binding LastOutcome.StockText}" FontWeight="SemiBold" />
+              <TextBlock Grid.Row="1" x:Name="OutcomePriceLabel" Text="{Binding LastOutcome.PriceText}" FontSize="13"
+                         TextTrimming="CharacterEllipsis" IsVisible="{Binding LastOutcome.HasMargin}" />
+              <TextBlock Grid.Row="1" Grid.Column="1" x:Name="OutcomeMarginLabel" Text="{Binding LastOutcome.MarginText}"
+                         FontSize="13" FontWeight="Medium" IsVisible="{Binding LastOutcome.HasMargin}" />
+            </Grid>
+          </Border>
+
+          <!-- Lignes enregistrées, ou historique des états -->
+          <Border Classes="card" Padding="0" Margin="0,8,0,0">
+            <Grid>
+              <DockPanel IsVisible="{Binding !IsHistoryVisible}">
+                <Border DockPanel.Dock="Top" Padding="12,7" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                  <Grid ColumnDefinitions="30,*,116,70,118,128,158" ColumnSpacing="10">
+                    <TextBlock Classes="head num" Text="N°" />
+                    <TextBlock Grid.Column="1" Classes="head" Text="Désignation" />
+                    <TextBlock Grid.Column="2" Classes="head" Text="Code-barres" />
+                    <TextBlock Grid.Column="3" Classes="head num" Text="Quantité" />
+                    <TextBlock Grid.Column="4" Classes="head num" Text="Prix d'achat" />
+                    <TextBlock Grid.Column="5" Classes="head num" Text="Total" />
+                    <TextBlock Grid.Column="6" Classes="head num" Text="Marge unitaire" />
+                  </Grid>
+                </Border>
+                <ListBox x:Name="LinesList" Classes="rows" ItemsSource="{Binding Lines}" SelectedItem="{Binding SelectedLine}"
+                         Background="Transparent">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="local:NoteLineRowViewModel">
+                      <Grid ColumnDefinitions="30,*,116,70,118,128,158" ColumnSpacing="10" Classes.cancelled="{Binding IsCancelled}">
+                        <TextBlock Classes="num label" Text="{Binding PositionText}" />
+                        <TextBlock Grid.Column="1" Classes="cell" Text="{Binding ProductName}" />
+                        <TextBlock Grid.Column="2" Classes="cell label" Text="{Binding Barcode}" />
+                        <TextBlock Grid.Column="3" Classes="num" Text="{Binding QuantityText}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="4" Classes="num" Text="{Binding PriceText}" />
+                        <TextBlock Grid.Column="5" Classes="num" Text="{Binding TotalText}" FontWeight="SemiBold" />
+                        <Border Grid.Column="6" HorizontalAlignment="Right" CornerRadius="6" Padding="6,1"
+                                Classes.margindrop="{Binding MarginDropped}">
+                          <TextBlock Classes="num" Text="{Binding MarginText}" FontSize="13" />
+                        </Border>
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </DockPanel>
+
+              <DockPanel IsVisible="{Binding IsHistoryVisible}">
+                <Border DockPanel.Dock="Top" Padding="12,7" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Historique du bon (du plus récent au plus ancien)" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="1" Classes="label" Text="F7 ou Échap : revenir aux lignes" />
+                  </Grid>
+                </Border>
+                <ListBox x:Name="HistoryList" Classes="rows" ItemsSource="{Binding History}" Background="Transparent">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="local:NoteHistoryRowViewModel">
+                      <Grid ColumnDefinitions="126,150,*,Auto" ColumnSpacing="10">
+                        <TextBlock Classes="cell label" Text="{Binding MomentText}" />
+                        <TextBlock Grid.Column="1" Classes="cell" Text="{Binding EmployeeName}" />
+                        <TextBlock Grid.Column="2" Text="{Binding Description}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="3" Classes="cell" Text="{Binding StatusText}" FontWeight="SemiBold" FontSize="13" />
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </DockPanel>
+            </Grid>
+          </Border>
+        </DockPanel>
+
+        <!-- Création rapide d'un produit inconnu -->
+        <Border x:Name="QuickProductPanel" Background="#99111111" IsVisible="{Binding IsCreatingProduct}" ZIndex="10">
+          <Border Classes="card" Width="540" Padding="22,18" HorizontalAlignment="Center" VerticalAlignment="Center"
+                  DataContext="{Binding QuickProduct}" x:DataType="local:QuickProductViewModel">
+            <StackPanel Spacing="9">
+              <TextBlock Text="Produit inconnu — création rapide" FontSize="19" FontWeight="Bold" />
+              <TextBlock x:Name="QuickBarcodeLabel" TextWrapping="Wrap">
+                <Run Text="Aucun produit ne porte le code-barres " /><Run Text="{Binding Barcode}" FontWeight="SemiBold" /><Run Text=". Créez-le pour continuer la saisie." />
+              </TextBlock>
+              <Grid ColumnDefinitions="*,160" ColumnSpacing="12">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="label" Text="Désignation" />
+                  <TextBox x:Name="QuickNameBox" Classes="field" Text="{Binding Name}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="4">
+                  <TextBlock Classes="label" Text="Prix de vente (DA)" />
+                  <TextBox x:Name="QuickPriceBox" Classes="field" Text="{Binding SalePriceText}" TextAlignment="Right" />
+                </StackPanel>
+              </Grid>
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="label" Text="Marque (facultative)" />
+                  <TextBox x:Name="QuickBrandBox" Classes="field" Text="{Binding Brand}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="4">
+                  <TextBlock Classes="label" Text="Catégorie (facultative)" />
+                  <TextBox x:Name="QuickCategoryBox" Classes="field" Text="{Binding Category}" />
+                </StackPanel>
+              </Grid>
+              <CheckBox x:Name="QuickUnitBox" IsChecked="{Binding SoldByUnit}"
+                        Content="Vendu à l'unité (pas de quantité fractionnée)" />
+              <Border Classes="message error"
+                      IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock x:Name="QuickErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+              </Border>
+              <TextBlock Classes="label" TextWrapping="Wrap"
+                         Text="Entrée : prix de vente, puis créer · Tab : marque, catégorie · Échap : ne pas créer" />
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                <Button Classes="quiet" Content="Ne pas créer (Échap)" Focusable="False" Click="OnQuickCancelClick"
+                        HorizontalAlignment="Stretch" MinHeight="46" />
+                <Button Grid.Column="1" x:Name="QuickCreateButton" Classes="primary" Content="Créer le produit (Entrée)"
+                        Focusable="False" Click="OnQuickCreateClick" IsEnabled="{Binding !IsBusy}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+              </Grid>
+            </StackPanel>
+          </Border>
+        </Border>
+
+        <!-- Confirmation d'une opération critique -->
+        <Border x:Name="ConfirmationPanel" Background="#99111111" IsVisible="{Binding IsConfirming}" ZIndex="20">
+          <Border Classes="card" Width="500" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel Spacing="14">
+              <TextBlock Text="Confirmation" FontSize="20" FontWeight="Bold" />
+              <TextBlock x:Name="ConfirmationLabel" Text="{Binding Confirmation.Message}" TextWrapping="Wrap" />
+              <StackPanel Spacing="4" IsVisible="{Binding Confirmation.AsksReason}">
+                <TextBlock Classes="label" Text="Motif (facultatif)" />
+                <TextBox x:Name="ReasonBox" Classes="field" Text="{Binding Confirmation.Reason}" MaxLength="500" />
+              </StackPanel>
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                <Button Classes="quiet" Content="Ne rien faire (Échap)" Focusable="False" Click="OnConfirmationCancelClick"
+                        HorizontalAlignment="Stretch" MinHeight="46" />
+                <Button Grid.Column="1" x:Name="ConfirmButton" Classes="primary" Focusable="False" Click="OnConfirmationClick"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                  <TextBlock>
+                    <Run Text="{Binding Confirmation.ConfirmLabel}" /><Run Text=" (Entrée)" />
+                  </TextBlock>
+                </Button>
+              </Grid>
+            </StackPanel>
+          </Border>
+        </Border>
+      </Grid>
+    </Panel>
+  </Grid>
 </UserControl>
