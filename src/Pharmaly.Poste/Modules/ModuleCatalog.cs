@@ -82,7 +82,8 @@ public static class ModuleCatalog
                 Permissions.PaymentsCollect,
             ],
             context => new CashViewModel(
-                context.Clients.Receivables, context.Clients.Customers, context.Clients.CashSession, CashRights.From(context.Session)),
+                context.Clients.Receivables, context.Clients.Customers, context.Clients.CashSession, context.Clients.Closures,
+                CashRights.From(context.Session)),
             () => new CashView()),
 
         new(ModuleKeys.Products, "Produits",

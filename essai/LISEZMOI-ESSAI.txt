@@ -28,7 +28,8 @@ A ESSAYER
   scanner ou chercher des produits ; * pour encaisser en especes, F8 pour le TPE,
   F9 pour une vente impayee.
 - F3 Caisse : tableau des impayes ; scanner un ticket impaye, Espace pour en cocher
-  d'autres du meme client, * pour regler en especes ; Ctrl+Tab pour la session de caisse.
+  d'autres du meme client, * pour regler en especes ; Ctrl+Tab pour la session de caisse
+  (F10 : fermer la caisse en comptant les especes) puis l'onglet Cloture (F10 : cloturer la journee).
 - Retours clients : dans F1 Vente, Ctrl+R puis scanner le ticket, choisir quantite et motif.
 - F2 Bons fournisseurs : Ctrl+N nouveau bon, scanner, quantite, Entree, prix, Entree.
 - F4 Produits : recherche, fiche, stock, mouvements, prix, inventaire.
@@ -38,8 +39,8 @@ A ESSAYER
 Les codes-barres fictifs commencent par 200 ; F4 permet de les retrouver par le nom.
 
 PAS ENCORE DISPONIBLE DANS CET ESSAI
-- Cloture quotidienne (en cours de developpement).
 - Impression des tickets.
+- Mode secours hors ligne (attend une decision de la direction).
 
 RELANCER PLUS TARD
 - Double-cliquer sur DEMARRER-ESSAI.cmd.

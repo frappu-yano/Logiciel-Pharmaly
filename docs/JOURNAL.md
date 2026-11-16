@@ -159,6 +159,14 @@ dans `DECISIONS.md`), à valider. Le mode secours hors ligne (O4) n'est pas dév
   au texte saisi dans l'écran de vente comme dans la caisse. **701 tests réussis.**
 - Fusionné : retours clients (Ctrl+R dans la vente, aperçu du remboursement par le serveur,
   historique) et administration des motifs de retour. **740 tests réussis.**
+- Fusionné : fermeture de caisse avec comptage des espèces et onglet Clôture (état de la
+  journée, blocages, aperçu en trois blocs chiffre d'affaires / trésorerie / créances,
+  clôture, rapport figé, historique). Montants vérifiés contre la base sur un scénario
+  réel. **774 tests réussis.** Tous les modules de la V1 ont désormais leur écran, sauf
+  l'impression réelle et le mode secours (O4, en attente de la direction).
+- Connu, non corrigé : le poste n'affiche pas la liste détaillée des blocages renvoyée
+  avec un refus de clôture (seul le message, qui les nomme déjà, est affiché).
+
 
 
 ## 13/11/2026 — Prototype

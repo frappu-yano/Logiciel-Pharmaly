@@ -122,4 +122,64 @@ internal sealed partial class FakeServer : ICashSessionClient
 
         return Task.FromResult(recorded);
     }
+
+    private readonly Dictionary<Guid, CashSessionReport> closesByOperation = [];
+
+    /// <summary>Toutes les demandes de fermeture reçues, y compris celles refusées ou rejouées.</summary>
+    public List<CloseCashSessionRequest> CloseSessionRequests { get; } = [];
+
+    /// <summary>Pannes de réseau à appliquer aux prochaines fermetures de caisse, dans l'ordre.</summary>
+    public Queue<SaleSendFailure> CloseSessionFailures { get; } = new();
+
+    /// <summary>Fermetures réellement faites (une seule par session, même si la demande est rejouée).</summary>
+    public int SessionsClosed { get; private set; }
+
+    public Task<CashSessionReport> CloseSessionAsync(CloseCashSessionRequest request, CancellationToken cancellationToken)
+    {
+        CloseSessionRequests.Add(request);
+        var failure = CloseSessionFailures.Count > 0 ? CloseSessionFailures.Dequeue() : SaleSendFailure.None;
+        if (failure == SaleSendFailure.RequestLost)
+        {
+            throw new HttpRequestException("réseau coupé");
+        }
+
+        EnsurePermission(Permissions.RegisterClose);
+        if (!closesByOperation.TryGetValue(request.OperationId, out var report))
+        {
+            if (request.CountedCash < 0 || decimal.Round(request.CountedCash, 2) != request.CountedCash)
+            {
+                throw new ServerRefusedException(
+                    ApiErrorCodes.InvalidRequest, "Le montant compté doit être positif ou nul, avec au plus deux décimales.");
+            }
+
+            if (CashSession is not { } session)
+            {
+                throw new ServerRefusedException(
+                    CashErrorCodes.NoOpenSession, "La caisse de ce poste n'est pas ouverte : il n'y a rien à fermer.");
+            }
+
+            // Pas de fermeture tant qu'un paiement par carte attend sa réponse (D23).
+            var blockers = CardBlockers();
+            if (blockers.Count > 0)
+            {
+                throw new ServerRefusedException(
+                    ClosureErrorCodes.CardPending,
+                    $"La caisse ne peut pas être fermée : {blockers.Count} paiement(s) par carte en attente de réponse. "
+                    + string.Join(" ", blockers.Select(blocker => blocker.Message)));
+            }
+
+            report = OwnSessionReport(session, request.CountedCash, DateTimeOffset.Now);
+            closesByOperation[request.OperationId] = report;
+            ClosedDaySessions.Add(report);
+            CashSession = null;
+            SessionsClosed++;
+        }
+
+        if (failure == SaleSendFailure.AnswerLost)
+        {
+            throw new TaskCanceledException("délai dépassé");
+        }
+
+        return Task.FromResult(report);
+    }
 }

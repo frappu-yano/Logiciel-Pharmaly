@@ -105,6 +105,9 @@ ou constante nommée) pour que le changement soit simple.
 | D38 | Chiffre d'affaires et retours | Les retours sont déduits du chiffre d'affaires du jour où ils sont faits ; un impayé réglé le jour même apparaît à part des anciennes créances |
 | D39 | Verrou d'un bon et verrouillage du poste | Un verrouillage volontaire (F12 ou inactivité) libère aussitôt les bons tenus depuis ce poste ; une coupure du poste les laisse réservés à l'employé |
 
+| D40 | Raccourcis de la caisse | F10 : fermer la caisse (onglet Session) et clôturer la journée (onglet Clôture, confirmation par un second F10, jamais par Entrée) ; F9 : clôture forcée ; F7 : historique des clôtures. Ctrl+R : retours dans la vente ; Ctrl+M : motifs de retour dans l'administration |
+| D41 | Clôturer sans le droit « consulter les rapports de caisse » | Impossible depuis le poste : l'état de la journée doit être lu avant de clôturer |
+
 **Non décidé et donc NON développé : le mode secours hors ligne (O4).** La direction a
 demandé explicitement de ne pas choisir sans son accord. Le code le prépare (identifiants
 générés par le poste, idempotence) mais aucune vente hors ligne n'est possible.

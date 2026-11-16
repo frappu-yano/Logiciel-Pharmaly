@@ -27,6 +27,8 @@ public sealed class ServerClients
 
     public required IReturnsClient Returns { get; init; }
 
+    public required IClosuresClient Closures { get; init; }
+
     public static ServerClients Create(IServerTransport transport) => new()
     {
         Access = new AccessClient(transport),
@@ -39,5 +41,6 @@ public sealed class ServerClients
         CashSession = new CashSessionClient(transport),
         Receivables = new ReceivablesClient(transport),
         Returns = new ReturnsClient(transport),
+        Closures = new ClosuresClient(transport),
     };
 }

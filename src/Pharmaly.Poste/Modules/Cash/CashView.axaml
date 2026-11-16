@@ -98,6 +98,9 @@
       <Setter Property="CornerRadius" Value="8" />
       <Setter Property="Padding" Value="14,12" />
     </Style>
+    <Style Selector="Border.noDifference">
+      <Setter Property="Background" Value="{StaticResource TurquoiseSoftBrush}" />
+    </Style>
     <Style Selector="Border.tile">
       <Setter Property="Padding" Value="14,8" />
     </Style>
@@ -347,6 +350,15 @@
           </Button>
         </Grid>
 
+        <!-- Fermeture de la caisse -->
+        <Button x:Name="CloseRegisterButton" Classes="quiet pay" HorizontalAlignment="Stretch" Command="{Binding BeginCloseRegisterCommand}"
+                IsVisible="{Binding CanShowCloseRegister}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <Border Classes="key"><TextBlock Text="{Binding CloseKeyLabel}" FontSize="13" FontWeight="Bold" /></Border>
+            <TextBlock Grid.Column="1" Text="Fermer la caisse — compter les espèces" VerticalAlignment="Center" FontSize="15" />
+          </Grid>
+        </Button>
+
         <Border Classes="message error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
           <TextBlock x:Name="SessionErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
         </Border>
@@ -388,12 +400,182 @@
     </Grid>
 
     <!-- ==================== Clôture ==================== -->
-    <Border Grid.Row="1" x:Name="ClosingPanel" Classes="card empty" IsVisible="{Binding IsClosingTab}">
-      <StackPanel Spacing="8">
-        <TextBlock Classes="emptyTitle" Text="Clôture quotidienne" />
-        <TextBlock x:Name="ClosingLabel" Classes="emptyState" Text="{x:Static local:CashViewModel.ClosingNotAvailable}" />
+    <Grid Grid.Row="1" x:Name="ClosingPanel" IsVisible="{Binding IsClosingTab}" RowDefinitions="Auto,Auto,*">
+
+      <Border Grid.RowSpan="3" Classes="card empty" IsVisible="{Binding CannotViewReports}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="emptyTitle" Text="Clôture quotidienne" />
+          <TextBlock x:Name="NoReportsRightLabel" Classes="emptyState" Text="{x:Static local:CashViewModel.NoReportsViewRight}" />
+        </StackPanel>
+      </Border>
+
+      <!-- Titre et actions -->
+      <Grid Margin="16,10,16,0" ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding Rights.CanViewReports}">
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock x:Name="DayTitleLabel" Text="{Binding DayTitle}" FontSize="19" FontWeight="Bold" TextWrapping="Wrap"
+                     IsVisible="{Binding IsDayMode}" />
+          <TextBlock Text="Historique des clôtures" FontSize="19" FontWeight="Bold" IsVisible="{Binding IsHistoryMode}" />
+          <TextBlock x:Name="OpenedClosureTitleLabel" Text="{Binding OpenedClosureTitle}" FontSize="19" FontWeight="Bold" TextWrapping="Wrap"
+                     IsVisible="{Binding IsReportMode}" />
+          <TextBlock x:Name="OpenedClosureByLabel" Classes="label" Text="{Binding OpenedClosureByText}" IsVisible="{Binding IsReportMode}" />
+          <TextBlock Classes="label" Text="↑ ↓ : faire défiler · Ctrl+R : relire" IsVisible="{Binding IsDayMode}" />
+          <TextBlock Classes="label" Text="↑ ↓ : choisir · Entrée : ouvrir le rapport figé · Échap : journée en cours"
+                     IsVisible="{Binding IsHistoryMode}" TextWrapping="Wrap" />
+          <TextBlock Classes="label" Text="↑ ↓ : faire défiler · Échap : revenir" IsVisible="{Binding IsReportMode}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button x:Name="HistoryButton" Classes="quiet tab" Command="{Binding ToggleHistoryCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Border Classes="key"><TextBlock Text="{Binding HistoryKeyLabel}" FontSize="12" FontWeight="Bold" /></Border>
+              <TextBlock Text="{Binding HistoryKeyText}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button x:Name="ForcedCloseButton" Classes="refuse tab" Command="{Binding BeginForcedCloseCommand}">
+            <Button.IsVisible>
+              <MultiBinding Converter="{x:Static BoolConverters.And}">
+                <Binding Path="CanShowForcedClose" />
+                <Binding Path="IsDayMode" />
+              </MultiBinding>
+            </Button.IsVisible>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Border Classes="key"><TextBlock Text="{Binding ForcedCloseKeyLabel}" FontSize="12" FontWeight="Bold" /></Border>
+              <TextBlock Text="Clôture forcée" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button x:Name="CloseDayButton" Classes="primary tab" Command="{Binding BeginCloseDayCommand}" IsEnabled="{Binding CanCloseDay}">
+            <Button.IsVisible>
+              <MultiBinding Converter="{x:Static BoolConverters.And}">
+                <Binding Path="CanShowCloseDay" />
+                <Binding Path="IsDayMode" />
+              </MultiBinding>
+            </Button.IsVisible>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Border Classes="key"><TextBlock Text="{Binding CloseKeyLabel}" FontSize="12" FontWeight="Bold" /></Border>
+              <TextBlock Text="Clôturer la journée" VerticalAlignment="Center" FontWeight="SemiBold" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+
+      <!-- Messages -->
+      <StackPanel Grid.Row="1" Margin="16,8,16,0" Spacing="6" IsVisible="{Binding Rights.CanViewReports}">
+        <Border Classes="message error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock x:Name="ClosingErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
+        <Border Classes="message info" IsVisible="{Binding InfoMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock x:Name="ClosingInfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
       </StackPanel>
-    </Border>
+
+      <!-- Journée en cours -->
+      <ScrollViewer Grid.Row="2" x:Name="DayScroll" Margin="16,8,4,12" Padding="0,0,12,0" Focusable="False">
+        <ScrollViewer.IsVisible>
+          <MultiBinding Converter="{x:Static BoolConverters.And}">
+            <Binding Path="IsDayMode" />
+            <Binding Path="HasDayStatus" />
+            <Binding Path="Rights.CanViewReports" />
+          </MultiBinding>
+        </ScrollViewer.IsVisible>
+        <StackPanel Spacing="10">
+          <Border Classes="card" Padding="14,10">
+            <StackPanel Spacing="4">
+              <TextBlock x:Name="DayStateLabel" Text="{Binding DayStateText}" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"
+                         Classes.pendingCard="{Binding !IsDayReady}" />
+              <TextBlock x:Name="LastClosedLabel" Classes="label" Text="{Binding LastClosedText}" />
+              <TextBlock x:Name="PendingOfflineLabel" Classes="pendingCard" Text="{Binding PendingOfflineText}" TextWrapping="Wrap"
+                         IsVisible="{Binding HasPendingOffline}" />
+            </StackPanel>
+          </Border>
+
+          <Border x:Name="DayBlockersPanel" Classes="warning" IsVisible="{Binding IsDayBlocked}">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Ce qui bloque la clôture" FontSize="17" FontWeight="Bold" />
+              <ItemsControl x:Name="DayBlockersList" ItemsSource="{Binding DayBlockers}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="local:BlockerRowViewModel">
+                    <StackPanel Spacing="1" Margin="0,4">
+                      <TextBlock Text="{Binding Title}" FontWeight="Bold" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+                      <TextBlock Classes="label" Text="{Binding Hint}" TextWrapping="Wrap" IsVisible="{Binding HasHint}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <StackPanel Spacing="2">
+            <TextBlock Text="Aperçu des totaux — NON FIGÉ" FontSize="15" FontWeight="Bold" />
+            <TextBlock Classes="label" TextWrapping="Wrap"
+                       Text="Ces montants changent tant que la journée n'est pas clôturée. Seul le rapport de clôture est figé." />
+          </StackPanel>
+          <local:ClosureReportPanel x:Name="DayPreviewPanel" DataContext="{Binding DayPreview}" />
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Historique -->
+      <Border Grid.Row="2" Classes="card" Margin="16,8,16,12" Padding="0">
+        <Border.IsVisible>
+          <MultiBinding Converter="{x:Static BoolConverters.And}">
+            <Binding Path="IsHistoryMode" />
+            <Binding Path="Rights.CanViewReports" />
+          </MultiBinding>
+        </Border.IsVisible>
+        <DockPanel>
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="1.1*,2.4*,1.4*,1.4*,1.4*,1.6*,0.9*" ColumnSpacing="8" Margin="14,10,14,6">
+            <TextBlock Classes="label" Text="Journée" />
+            <TextBlock Grid.Column="1" Classes="label" Text="Clôturée le — par" />
+            <TextBlock Grid.Column="2" Classes="label number" Text="CA net" />
+            <TextBlock Grid.Column="3" Classes="label number" Text="Espèces" />
+            <TextBlock Grid.Column="4" Classes="label number" Text="TPE" />
+            <TextBlock Grid.Column="5" Classes="label number" Text="Écart" />
+          </Grid>
+          <TextBlock DockPanel.Dock="Top" Classes="emptyState" Margin="14,10" Text="Aucune clôture." IsVisible="{Binding !HasHistory}" />
+          <ListBox x:Name="HistoryList" ItemsSource="{Binding HistoryRows}" SelectedItem="{Binding SelectedHistoryRow}"
+                   Background="Transparent" Focusable="False">
+            <ListBox.Styles>
+              <Style Selector="ListBoxItem">
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="Padding" Value="14,8" />
+              </Style>
+            </ListBox.Styles>
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:ClosureHistoryRowViewModel">
+                <Grid ColumnDefinitions="1.1*,2.4*,1.4*,1.4*,1.4*,1.6*,0.9*" ColumnSpacing="8">
+                  <TextBlock Classes="cell" Text="{Binding DateText}" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Classes="cell" Text="{Binding ClosedText}" />
+                  <TextBlock Grid.Column="2" Classes="cell number" Text="{Binding NetRevenueText}" />
+                  <TextBlock Grid.Column="3" Classes="cell number" Text="{Binding NetCashText}" />
+                  <TextBlock Grid.Column="4" Classes="cell number" Text="{Binding NetCardText}" />
+                  <TextBlock Grid.Column="5" Classes="cell number" Text="{Binding DifferenceText}"
+                             Classes.pendingCard="{Binding IsDifferenceAlert}" />
+                  <TextBlock Grid.Column="6" Classes="cell pendingCard" Text="{Binding ForcedText}" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </DockPanel>
+      </Border>
+
+      <!-- Rapport figé -->
+      <ScrollViewer Grid.Row="2" x:Name="ReportScroll" Margin="16,8,4,12" Padding="0,0,12,0" Focusable="False">
+        <ScrollViewer.IsVisible>
+          <MultiBinding Converter="{x:Static BoolConverters.And}">
+            <Binding Path="IsReportMode" />
+            <Binding Path="HasOpenedClosure" />
+          </MultiBinding>
+        </ScrollViewer.IsVisible>
+        <StackPanel Spacing="10">
+          <Border x:Name="ForcedReportPanel" Classes="warning" IsVisible="{Binding IsOpenedClosureForced}">
+            <StackPanel Spacing="4">
+              <TextBlock x:Name="ForcedReportLabel" Text="{Binding OpenedClosureWarning}" FontSize="17" FontWeight="Bold" TextWrapping="Wrap" />
+              <TextBlock x:Name="ForcedReasonLabel" Text="{Binding OpenedClosureReasonText}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+          <local:ClosureReportPanel x:Name="OpenedReportPanel" DataContext="{Binding OpenedReport}" />
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
 
     <!-- ==================== Étapes du règlement ==================== -->
     <Border Grid.Row="0" Grid.RowSpan="2" x:Name="StepOverlay" Background="#99111111" IsVisible="{Binding IsStepOpen}" ZIndex="10">
@@ -627,6 +809,191 @@
                        Text="Le serveur n'a pas répondu : on ne sait pas si le mouvement est enregistré. Réessayer renvoie exactement le même mouvement ; il ne peut pas être compté deux fois." />
             <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
             <Button Classes="primary step" Content="Réessayer (Entrée)" Command="{Binding RetryMovementCommand}" />
+          </StackPanel>
+
+          <!-- Fermeture : comptage -->
+          <StackPanel x:Name="CloseCountPanel" Spacing="10"
+                      IsVisible="{Binding SessionStep, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SessionStep.CloseCount}}">
+            <TextBlock Classes="stepTitle" Text="Fermer la caisse" />
+            <TextBlock x:Name="CloseRegisterLabel" Text="{Binding CloseRegisterName}" FontSize="18" FontWeight="SemiBold" />
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" TextWrapping="Wrap"
+                         Text="Comptez les espèces du tiroir (fond de caisse compris) et saisissez le total, en dinars." />
+              <TextBox x:Name="CountedCashBox" Text="{Binding CountedCashText}" FontSize="24" Padding="12,10" TextAlignment="Right" />
+            </StackPanel>
+            <TextBlock x:Name="CloseCountErrorLabel" Classes="stepError" Text="{Binding SessionStepError}"
+                       IsVisible="{Binding SessionStepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Annuler (Échap)" Command="{Binding CancelSessionStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Valider (Entrée)" Command="{Binding ValidateCountedCashCommand}" />
+            </Grid>
+            <TextBlock Classes="label" Text="Rien n'est encore enregistré : la confirmation vient ensuite." />
+          </StackPanel>
+
+          <!-- Fermeture : confirmation -->
+          <StackPanel x:Name="CloseConfirmPanel" Spacing="12"
+                      IsVisible="{Binding SessionStep, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SessionStep.CloseConfirm}}">
+            <TextBlock Classes="stepTitle" Text="Fermer la caisse avec ce comptage ?" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Espèces comptées" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" x:Name="CountedCashConfirmLabel" Classes="big number" Text="{Binding CountedCashDisplayText}" />
+            </Grid>
+            <Border Classes="warning">
+              <TextBlock TextWrapping="Wrap" FontWeight="Medium"
+                         Text="Après la fermeture, plus aucune vente, aucun règlement ni mouvement d'espèces sur cette caisse avant sa réouverture. Le comptage ne pourra plus être modifié." />
+            </Border>
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Corriger (Échap)" Command="{Binding CancelSessionStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Fermer la caisse (Entrée)" Command="{Binding ConfirmCloseRegisterCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Fermeture : sans réponse -->
+          <StackPanel x:Name="CloseUnconfirmedPanel" Spacing="12"
+                      IsVisible="{Binding SessionStep, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SessionStep.CloseUnconfirmed}}">
+            <Border Classes="warning">
+              <TextBlock Text="{x:Static local:CashViewModel.CloseUnconfirmedTitle}" FontSize="19" FontWeight="Bold" TextWrapping="Wrap" />
+            </Border>
+            <TextBlock TextWrapping="Wrap"
+                       Text="Le serveur n'a pas répondu : on ne sait pas si la caisse est fermée. Réessayer renvoie exactement le même comptage ; la caisse ne peut pas être fermée deux fois." />
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Button Classes="primary step" Content="Réessayer (Entrée)" Command="{Binding RetryCloseRegisterCommand}" />
+          </StackPanel>
+
+          <!-- Fermeture : refusée -->
+          <StackPanel x:Name="CloseBlockedPanel" Spacing="10"
+                      IsVisible="{Binding SessionStep, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SessionStep.CloseBlocked}}">
+            <TextBlock Classes="stepTitle" Text="La caisse ne peut pas être fermée" />
+            <Border Classes="message error">
+              <TextBlock x:Name="CloseBlockedLabel" Text="{Binding CloseBlockedMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+            </Border>
+            <ScrollViewer MaxHeight="220" IsVisible="{Binding HasCloseBlockers}">
+              <ItemsControl x:Name="CloseBlockersList" ItemsSource="{Binding CloseBlockers}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="local:BlockerRowViewModel">
+                    <StackPanel Spacing="1" Margin="0,4">
+                      <TextBlock Text="{Binding Title}" FontWeight="Bold" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+                      <TextBlock Classes="label" Text="{Binding Hint}" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+            <TextBlock x:Name="CloseBlockedHelpLabel" TextWrapping="Wrap" Text="{x:Static local:CashViewModel.CloseBlockedHelp}" />
+            <Button Classes="primary step" Content="Compris (Entrée)" Command="{Binding FinishCloseRegisterCommand}" />
+          </StackPanel>
+
+          <!-- Fermeture : rapport de session -->
+          <StackPanel x:Name="CloseDonePanel" Spacing="8"
+                      IsVisible="{Binding SessionStep, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:SessionStep.CloseDone}}">
+            <TextBlock Classes="stepTitle" Text="Caisse fermée — rapport de session" />
+            <StackPanel DataContext="{Binding ClosedSessionReport}" x:DataType="local:SessionReportViewModel" Spacing="6">
+              <TextBlock x:Name="ClosedSessionTitleLabel" Text="{Binding Title}" FontSize="17" FontWeight="SemiBold" />
+              <TextBlock Classes="label" Text="{Binding ClosedText}" />
+              <ItemsControl ItemsSource="{Binding Lines}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="local:ReportLine">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,1">
+                      <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Classes="label" Text="{Binding Note}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Classes="number" Text="{Binding Amount}" MinWidth="120" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Border Background="{StaticResource TurquoiseSoftBrush}" CornerRadius="8" Padding="14,8">
+                <StackPanel Spacing="2">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Espèces attendues" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" x:Name="ClosedExpectedLabel" Classes="number" FontSize="18" FontWeight="Bold" Text="{Binding ExpectedText}" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Espèces comptées" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" x:Name="ClosedCountedLabel" Classes="number" FontSize="18" FontWeight="Bold" Text="{Binding CountedText}" />
+                  </Grid>
+                </StackPanel>
+              </Border>
+              <Border x:Name="ClosedDifferencePanel" CornerRadius="8" Padding="14,8"
+                      Classes.noDifference="{Binding !IsDifferenceAlert}" Classes.warning="{Binding IsDifferenceAlert}">
+                <StackPanel Spacing="2">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="ÉCART" FontWeight="Bold" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" x:Name="ClosedDifferenceLabel" Classes="big number" FontSize="26" Text="{Binding DifferenceText}"
+                               Classes.pendingCard="{Binding IsDifferenceAlert}" />
+                  </Grid>
+                  <TextBlock Classes="label" Text="{Binding DifferenceExplanation}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+            <Button x:Name="CloseDoneButton" Classes="primary step" Content="Terminé (Entrée)" Command="{Binding FinishCloseRegisterCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Border>
+
+    <!-- ==================== Étapes de la clôture de la journée ==================== -->
+    <Border Grid.Row="0" Grid.RowSpan="2" x:Name="ClosingStepOverlay" Background="#99111111" IsVisible="{Binding IsClosingStepOpen}"
+            ZIndex="10">
+      <Border Classes="card" Width="600" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid>
+          <!-- Clôture forcée : motif -->
+          <StackPanel x:Name="ForceReasonPanel" Spacing="10"
+                      IsVisible="{Binding ClosingStep, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:ClosingStep.ForceReason}}">
+            <TextBlock Classes="stepTitle" Text="Clôture forcée — procédure exceptionnelle" />
+            <Border Classes="warning">
+              <TextBlock x:Name="ForcedWarningLabel" Text="{x:Static local:CashViewModel.ForcedWarningText}" TextWrapping="Wrap" FontWeight="SemiBold" />
+            </Border>
+            <TextBlock Text="{Binding PendingOfflineText}" TextWrapping="Wrap" />
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" Text="Motif (obligatoire)" />
+              <TextBox x:Name="ForceReasonBox" Text="{Binding ForceReason}" FontSize="17" Padding="12,9" MaxLength="500" />
+            </StackPanel>
+            <TextBlock x:Name="ForceReasonErrorLabel" Classes="stepError" Text="{Binding ClosingStepError}"
+                       IsVisible="{Binding ClosingStepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Annuler (Échap)" Command="{Binding CancelClosingStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Valider le motif (Entrée)" Command="{Binding ValidateForceReasonCommand}" />
+            </Grid>
+            <TextBlock Classes="label" Text="Rien n'est encore enregistré : la confirmation vient ensuite." />
+          </StackPanel>
+
+          <!-- Confirmation forte -->
+          <StackPanel x:Name="ClosingConfirmPanel" Spacing="12"
+                      IsVisible="{Binding ClosingStep, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:ClosingStep.Confirm}}">
+            <TextBlock Classes="stepTitle" Text="{Binding ClosingConfirmTitle}" />
+            <TextBlock x:Name="ClosingDateLabel" Classes="big" Text="{Binding ClosingDateText}" />
+            <Border Classes="warning">
+              <TextBlock TextWrapping="Wrap" FontWeight="SemiBold"
+                         Text="Opération IRRÉVERSIBLE : la journée sera figée. Ses ventes, règlements et mouvements ne pourront plus en changer, et tout ce qui sera saisi ensuite appartiendra à la journée suivante." />
+            </Border>
+            <Border Classes="warning" IsVisible="{Binding IsForcedClosing}">
+              <StackPanel Spacing="4">
+                <TextBlock Text="{x:Static local:CashViewModel.ForcedWarningText}" TextWrapping="Wrap" />
+                <TextBlock x:Name="ForceReasonConfirmLabel" Text="{Binding ForceReason, StringFormat='Motif : {0}'}" TextWrapping="Wrap"
+                           FontWeight="SemiBold" />
+              </StackPanel>
+            </Border>
+            <TextBlock Classes="label" TextWrapping="Wrap" Text="Entrée ne clôture pas : appuyez sur F10 pour clôturer définitivement." />
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Annuler (Échap)" Command="{Binding CancelClosingStepCommand}" />
+              <Button Grid.Column="1" x:Name="ConfirmCloseDayButton" Classes="primary step" Content="Clôturer définitivement (F10)"
+                      Command="{Binding ConfirmCloseDayCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Sans réponse -->
+          <StackPanel x:Name="ClosingUnconfirmedPanel" Spacing="12"
+                      IsVisible="{Binding ClosingStep, Converter={x:Static sales:EqualityConverter.Instance}, ConverterParameter={x:Static local:ClosingStep.Unconfirmed}}">
+            <Border Classes="warning">
+              <TextBlock Text="{x:Static local:CashViewModel.ClosingUnconfirmedTitle}" FontSize="19" FontWeight="Bold" TextWrapping="Wrap" />
+            </Border>
+            <TextBlock TextWrapping="Wrap"
+                       Text="Le serveur n'a pas répondu : on ne sait pas si la journée est clôturée. Réessayer renvoie exactement la même clôture ; elle ne peut pas être faite deux fois." />
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsSending}" />
+            <Button Classes="primary step" Content="Réessayer (Entrée)" Command="{Binding RetryCloseDayCommand}" />
           </StackPanel>
         </Grid>
       </Border>

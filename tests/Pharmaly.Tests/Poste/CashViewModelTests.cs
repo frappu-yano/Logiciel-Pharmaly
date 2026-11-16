@@ -30,7 +30,7 @@ public sealed class CashViewModelTests
 
     /// <summary>Le module tel que le poste le construit : les droits affichés sont ceux de l'employé identifié.</summary>
     private CashViewModel Create() =>
-        new(server, server, server, CashRights.From(code => server.EmployeePermissions.Contains(code)), () => Today);
+        new(server, server, server, server, CashRights.From(code => server.EmployeePermissions.Contains(code)), () => Today);
 
     private async Task<CashViewModel> OpenAsync()
     {
@@ -74,7 +74,7 @@ public sealed class CashViewModelTests
     // ---------- Onglets ----------
 
     [Fact]
-    public async Task Le_module_s_ouvre_sur_les_impayes_et_Ctrl_Tab_passe_a_la_session_puis_a_la_cloture_vide()
+    public async Task Le_module_s_ouvre_sur_les_impayes_et_Ctrl_Tab_passe_a_la_session_puis_a_la_cloture()
     {
         var viewModel = await OpenAsync();
         Assert.True(viewModel.IsReceivablesTab);
@@ -83,7 +83,9 @@ public sealed class CashViewModelTests
         Assert.True(viewModel.IsSessionTab);
         await viewModel.MoveTabAsync(1);
         Assert.True(viewModel.IsClosingTab);
-        Assert.Equal("La clôture quotidienne n'est pas encore disponible sur ce poste.", CashViewModel.ClosingNotAvailable);
+        Assert.True(viewModel.IsDayMode);
+        Assert.True(viewModel.HasDayStatus);
+        Assert.Equal(1, server.CurrentDayReads);
         await viewModel.MoveTabAsync(1);
         Assert.True(viewModel.IsReceivablesTab);
         await viewModel.MoveTabAsync(-1);
