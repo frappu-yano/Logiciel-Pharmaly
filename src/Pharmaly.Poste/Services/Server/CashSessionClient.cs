@@ -10,6 +10,12 @@ public interface ICashSessionClient
 
     /// <summary>Ouvre la caisse du poste avec le fond de caisse compté.</summary>
     Task<CashSessionInfo> OpenSessionAsync(OpenCashSessionRequest request, CancellationToken cancellationToken);
+
+    /// <summary>Totaux de la session ouverte du poste (droit « consulter les rapports de caisse »).</summary>
+    Task<CashSessionSummary> GetSummaryAsync(CancellationToken cancellationToken);
+
+    /// <summary>Entrée ou sortie d'espèces hors vente, motif obligatoire (droit « encaisser les paiements », D22).</summary>
+    Task<CashMovementResult> RecordMovementAsync(CashMovementRequest request, CancellationToken cancellationToken);
 }
 
 public sealed class CashSessionClient(IServerTransport transport) : ICashSessionClient
@@ -20,4 +26,10 @@ public sealed class CashSessionClient(IServerTransport transport) : ICashSession
 
     public async Task<CashSessionInfo> OpenSessionAsync(OpenCashSessionRequest request, CancellationToken cancellationToken) =>
         (await transport.SendAsync<CashSessionInfo>(HttpMethod.Post, CashRoutes.OpenSession, request, cancellationToken))!;
+
+    public async Task<CashSessionSummary> GetSummaryAsync(CancellationToken cancellationToken) =>
+        (await transport.SendAsync<CashSessionSummary>(HttpMethod.Get, CashRoutes.SessionSummary, null, cancellationToken))!;
+
+    public async Task<CashMovementResult> RecordMovementAsync(CashMovementRequest request, CancellationToken cancellationToken) =>
+        (await transport.SendAsync<CashMovementResult>(HttpMethod.Post, CashRoutes.Movements, request, cancellationToken))!;
 }

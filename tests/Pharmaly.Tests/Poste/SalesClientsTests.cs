@@ -109,4 +109,36 @@ public sealed class SalesClientsTests
             ],
             transport.Sent);
     }
+
+    [Fact]
+    public async Task Les_impayes_le_resume_et_les_mouvements_d_especes_utilisent_les_routes_du_serveur()
+    {
+        var receivables = new ReceivablesClient(transport);
+        var cash = new CashSessionClient(transport);
+        var settlementId = Guid.Parse("6f0a3c0e-6f0e-4f43-9f6e-0d3b8c1d2a11");
+        var settle = new SettleReceivablesRequest(Guid.NewGuid(), [Guid.NewGuid()], PaymentMethods.Cash, 3500m, 4000m);
+        var card = new CardResultRequest(Guid.NewGuid(), false);
+        var movement = new CashMovementRequest(Guid.NewGuid(), CashMovementKinds.Out, 250m, "Timbres");
+
+        var table = await receivables.GetReceivablesAsync(new ReceivablesQuery(ReceivableStatuses.Open), CancellationToken.None);
+        await receivables.FindByTicketAsync(" TK0000000012 ", CancellationToken.None);
+        await receivables.GetSettlementAsync(settlementId, CancellationToken.None);
+        await receivables.SettleAsync(settle, CancellationToken.None);
+        await receivables.ResolveCardAsync(settlementId, card, CancellationToken.None);
+        await cash.GetSummaryAsync(CancellationToken.None);
+        await cash.RecordMovementAsync(movement, CancellationToken.None);
+
+        Assert.Empty(table.Lines);
+        Assert.Equal(
+            [
+                (HttpMethod.Get, "/impayes?statut=OUVERTE", null, false),
+                (HttpMethod.Get, "/impayes/ticket/TK0000000012", null, true),
+                (HttpMethod.Get, $"/impayes/reglements/{settlementId}", null, true),
+                (HttpMethod.Post, "/impayes/reglements", settle, false),
+                (HttpMethod.Post, $"/impayes/reglements/{settlementId}/tpe", card, false),
+                (HttpMethod.Get, "/caisse/session/resume", null, false),
+                (HttpMethod.Post, "/caisse/mouvements", movement, false),
+            ],
+            transport.Sent);
+    }
 }

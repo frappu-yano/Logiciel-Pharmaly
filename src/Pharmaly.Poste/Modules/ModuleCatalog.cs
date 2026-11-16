@@ -77,8 +77,13 @@ public static class ModuleCatalog
             [
                 Permissions.RegisterOpen, Permissions.RegisterClose, Permissions.RegisterReportsView,
                 Permissions.ReceivablesView, Permissions.ReceivablesSettle,
+
+                // Entrées et sorties d'espèces (D22).
+                Permissions.PaymentsCollect,
             ],
-            _ => new CashViewModel(), () => new CashView()),
+            context => new CashViewModel(
+                context.Clients.Receivables, context.Clients.Customers, context.Clients.CashSession, CashRights.From(context.Session)),
+            () => new CashView()),
 
         new(ModuleKeys.Products, "Produits",
             [
