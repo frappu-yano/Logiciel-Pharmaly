@@ -132,6 +132,15 @@ dans `DECISIONS.md`), à valider. Le mode secours hors ligne (O4) n'est pas dév
     concurrentes, le double clic, le règlement groupé tout ou rien, le double règlement
     simultané et un contrôle d'intégrité financière en 19 règles (**330 réussis, 0 échec**).
 - Choix faits par les agents en l'absence de règle : D19 à D31 dans `DECISIONS.md`.
+- Intégration continue : échec sur Linux après la fusion du chiffrement. Cause : sur la
+  machine GitHub, `pg_dump` était plus récent que le serveur PostgreSQL de test, et la
+  sauvegarde n'était pas restaurable. Corrigé : la sauvegarde vérifie désormais que ses
+  outils sont de la même version que le serveur, et le test Linux utilise le PostgreSQL de
+  la machine. **Exécution n° 15 réussie sous Linux et sous Windows** (chiffrement, refus
+  d'une empreinte inconnue, essai de rapidité en HTTPS compris).
+- Fusionné : écran Produits (416 tests réussis).
+- **Deuxième interruption** par la limite d'usage vers 12 h UTC, pendant l'écran de vente,
+  l'écran des bons et les retours/clôture côté serveur. Reprise à 14 h 40 UTC.
 
 ## 13/11/2026 — Prototype
 
