@@ -29,7 +29,7 @@ public sealed partial class ProductEditViewModel : ProductFormViewModel
         Barcodes = new BarcodeListViewModel(product.Barcodes);
     }
 
-    public string Title => $"Modifier « {product.Name} »";
+    public string Title => "Modifier le produit";
 
     [ObservableProperty]
     private string name;

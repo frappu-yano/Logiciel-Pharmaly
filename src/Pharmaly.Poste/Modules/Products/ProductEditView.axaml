@@ -55,7 +55,7 @@
       </Grid>
 
       <CheckBox x:Name="ActiveBox" IsChecked="{Binding IsActive}"
-                Content="Produit actif (décoché : il n'est plus proposé à la vente ni dans les recherches)" />
+                Content="Produit actif (proposé à la vente)" />
 
       <Border Classes="message error"
               IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">

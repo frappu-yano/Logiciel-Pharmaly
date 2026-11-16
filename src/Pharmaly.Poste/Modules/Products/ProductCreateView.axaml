@@ -61,7 +61,7 @@
           <TextBox x:Name="PriceBox" Text="{Binding SalePrice}" Padding="10,9" FontSize="17" PlaceholderText="0,00" />
         </StackPanel>
         <CheckBox Grid.Column="1" x:Name="UnitBox" IsChecked="{Binding SoldByUnit}" VerticalAlignment="Bottom" Margin="0,0,0,5"
-                  Content="Vendu à l'unité (pas de fraction)" />
+                  Content="Vendu à l'unité" />
       </Grid>
 
       <Border Classes="message error"
