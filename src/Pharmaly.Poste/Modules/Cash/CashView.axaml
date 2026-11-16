@@ -98,6 +98,9 @@
       <Setter Property="CornerRadius" Value="8" />
       <Setter Property="Padding" Value="14,12" />
     </Style>
+    <Style Selector="Border.noDifference">
+      <Setter Property="Background" Value="{StaticResource TurquoiseSoftBrush}" />
+    </Style>
     <Style Selector="Border.tile">
       <Setter Property="Padding" Value="14,8" />
     </Style>
@@ -912,8 +915,8 @@
                   </Grid>
                 </StackPanel>
               </Border>
-              <Border x:Name="ClosedDifferencePanel" CornerRadius="8" Padding="14,8" Background="{StaticResource TurquoiseSoftBrush}"
-                      Classes.warning="{Binding IsDifferenceAlert}">
+              <Border x:Name="ClosedDifferencePanel" CornerRadius="8" Padding="14,8"
+                      Classes.noDifference="{Binding !IsDifferenceAlert}" Classes.warning="{Binding IsDifferenceAlert}">
                 <StackPanel Spacing="2">
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="ÉCART" FontWeight="Bold" VerticalAlignment="Center" />

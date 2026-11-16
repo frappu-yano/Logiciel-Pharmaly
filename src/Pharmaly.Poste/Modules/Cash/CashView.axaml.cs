@@ -73,6 +73,12 @@ public sealed partial class CashView : UserControl, IModuleView
             case nameof(CashViewModel.Tab) or nameof(CashViewModel.Step) or nameof(CashViewModel.SessionStep)
                 or nameof(CashViewModel.IsConfirmingOpening) or nameof(CashViewModel.IsCashStateKnown)
                 or nameof(CashViewModel.ClosingStep) or nameof(CashViewModel.ClosingMode):
+                if (change.PropertyName == nameof(CashViewModel.Tab) && ViewModel?.IsClosingTab == true)
+                {
+                    // Chaque arrivée sur la clôture commence en haut : l'état de la journée d'abord.
+                    DayScroll.Offset = default;
+                }
+
                 FocusAfterLayout();
                 break;
             case nameof(CashViewModel.SelectedHistoryRow) when ViewModel?.SelectedHistoryRow is { } closure:
