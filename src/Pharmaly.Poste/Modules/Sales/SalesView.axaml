@@ -137,6 +137,8 @@
                    IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         <Button Classes="quiet step" Content="Historique des ventes (Ctrl+H)" Command="{Binding OpenHistoryCommand}"
                 IsVisible="{Binding CanViewHistory}" />
+        <Button x:Name="CashClosedReturnsButton" Classes="quiet step" Content="Retours clients (Ctrl+R)"
+                Command="{Binding OpenReturnsCommand}" IsVisible="{Binding CanReturn}" />
       </StackPanel>
     </Border>
 
@@ -249,6 +251,13 @@
       <!-- Totaux et encaissement -->
       <DockPanel Grid.Column="1">
         <StackPanel DockPanel.Dock="Bottom" Spacing="6">
+          <Button x:Name="ReturnsButton" Classes="quiet pay" MinHeight="42" FontSize="15" FontWeight="Medium"
+                  Command="{Binding OpenReturnsCommand}" IsVisible="{Binding CanReturn}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <Border Classes="key"><TextBlock x:Name="ReturnsKeyLabel" Text="{Binding ReturnsKeyLabel}" FontSize="12" FontWeight="SemiBold" /></Border>
+              <TextBlock Grid.Column="1" Text="Retours clients" VerticalAlignment="Center" />
+            </Grid>
+          </Button>
           <Button Classes="quiet pay" MinHeight="42" FontSize="15" FontWeight="Medium" Command="{Binding OpenHistoryCommand}"
                   IsVisible="{Binding CanViewHistory}">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -321,6 +330,11 @@
     <!-- Historique -->
     <Border IsVisible="{Binding IsHistory}">
       <local:SalesHistoryView x:Name="HistoryView" DataContext="{Binding History}" />
+    </Border>
+
+    <!-- Retours clients -->
+    <Border IsVisible="{Binding IsReturns}">
+      <local:ReturnsView x:Name="ReturnsView" DataContext="{Binding Returns}" />
     </Border>
 
     <!-- Étapes par-dessus le panier -->

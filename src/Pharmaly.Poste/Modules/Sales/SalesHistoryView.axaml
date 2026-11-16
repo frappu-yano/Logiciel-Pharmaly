@@ -75,7 +75,7 @@
           <TextBlock x:Name="HistoryInfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
         </Border>
         <TextBlock Classes="label" TextWrapping="Wrap"
-                   Text="Entrée : chercher · ↑ ↓ : ticket · Tab : champ suivant · Ctrl+Suppr : annuler la vente · Ctrl+T : réponse du TPE · Échap : retour à la vente" />
+                   Text="Entrée : chercher · ↑ ↓ : ticket · Tab : champ suivant · Ctrl+Suppr : annuler la vente · Ctrl+T : réponse du TPE · Ctrl+R : retour · Échap : retour à la vente" />
       </StackPanel>
 
       <Grid ColumnDefinitions="*,400" ColumnSpacing="14">
@@ -128,6 +128,8 @@
                         Command="{Binding BeginCancelCommand}" IsVisible="{Binding CanCancelSelected}" />
                 <Button x:Name="CardAnswerButton" Classes="primary step" Content="Réponse du TPE (Ctrl+T)"
                         Command="{Binding BeginCardAnswerCommand}" IsVisible="{Binding CanAnswerCardSelected}" />
+                <Button x:Name="ReturnSaleButton" Classes="quiet step" Content="Retour sur ce ticket (Ctrl+R)"
+                        Command="{Binding BeginReturnCommand}" IsVisible="{Binding CanReturnSelected}" />
               </StackPanel>
             <DockPanel x:Name="DetailPanel" DataContext="{Binding Detail}" x:DataType="local:SaleDetailViewModel">
               <Border DockPanel.Dock="Top" Padding="14,10" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">

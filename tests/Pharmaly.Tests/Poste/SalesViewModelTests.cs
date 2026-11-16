@@ -10,7 +10,11 @@ internal sealed class RecordingTicketPrinter : ITicketPrinter
 {
     public List<SaleDetail> Printed { get; } = [];
 
+    public List<ReturnDetail> PrintedReturns { get; } = [];
+
     public void Print(SaleDetail ticket) => Printed.Add(ticket);
+
+    public void PrintReturn(ReturnDetail receipt) => PrintedReturns.Add(receipt);
 }
 
 public sealed class SalesViewModelTests
@@ -22,7 +26,7 @@ public sealed class SalesViewModelTests
 
     /// <summary>Le module tel que le poste le construit : les droits affichés sont ceux de l'employé identifié.</summary>
     private SalesViewModel Create() => new(
-        server, server, server, server, SalesRights.From(code => server.EmployeePermissions.Contains(code)), TimeSpan.Zero, printer);
+        server, server, server, server, server, SalesRights.From(code => server.EmployeePermissions.Contains(code)), TimeSpan.Zero, printer);
 
     private async Task<SalesViewModel> OpenAsync()
     {

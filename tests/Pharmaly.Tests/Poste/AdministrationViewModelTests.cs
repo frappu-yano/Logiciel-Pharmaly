@@ -11,7 +11,7 @@ public sealed class AdministrationViewModelTests
 
     private async Task<AdministrationViewModel> OpenAsync(Guid? currentEmployeeId = null)
     {
-        var viewModel = new AdministrationViewModel(server, currentEmployeeId ?? FakeServer.EmployeeId);
+        var viewModel = new AdministrationViewModel(server, server, currentEmployeeId ?? FakeServer.EmployeeId);
         await viewModel.ActivateAsync();
         return viewModel;
     }

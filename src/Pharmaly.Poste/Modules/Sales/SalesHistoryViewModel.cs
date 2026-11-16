@@ -150,6 +150,12 @@ public sealed class SaleDetailViewModel(SaleDetail sale, SalesRights rights)
 
     /// <summary>Une vente restée « en attente TPE » peut recevoir sa réponse ici (D23).</summary>
     public bool CanAnswerCard => rights.CanCollect && Sale.Status == SaleStatuses.CardPending;
+
+    /// <summary>
+    /// « Retour sur ce ticket » : proposé pour une vente validée qui n'est pas un impayé encore ouvert (D32) ;
+    /// le serveur dit ce qui reste retournable.
+    /// </summary>
+    public bool CanReturn => rights.CanReturn && Sale.Status == SaleStatuses.Completed && !Sale.IsUnpaid;
 }
 
 /// <summary>Étape affichée par-dessus l'historique.</summary>
@@ -233,7 +239,7 @@ public sealed partial class SalesHistoryViewModel : ObservableObject
     private SaleRowViewModel? selectedSale;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasDetail), nameof(CanCancelSelected), nameof(CanAnswerCardSelected))]
+    [NotifyPropertyChangedFor(nameof(HasDetail), nameof(CanCancelSelected), nameof(CanAnswerCardSelected), nameof(CanReturnSelected))]
     private SaleDetailViewModel? detail;
 
     [ObservableProperty]
@@ -269,6 +275,13 @@ public sealed partial class SalesHistoryViewModel : ObservableObject
     public bool CanCancelSelected => Detail?.CanCancel == true;
 
     public bool CanAnswerCardSelected => Detail?.CanAnswerCard == true;
+
+    public bool CanReturnSelected => Detail?.CanReturn == true && OpenReturn is not null;
+
+    public string ReturnsKeyLabel => SalesShortcuts.ReturnsLabel;
+
+    /// <summary>Ouvre l'écran des retours sur un ticket. Fourni par le module.</summary>
+    public Func<SaleDetail, Task>? OpenReturn { get; init; }
 
     /// <summary>À chaque arrivée sur l'historique : les ventes du jour.</summary>
     public Task ActivateAsync()
@@ -476,6 +489,31 @@ public sealed partial class SalesHistoryViewModel : ObservableObject
 
         StepError = string.Empty;
         Step = HistoryStep.None;
+    }
+
+    /// <summary>Affiche un ticket précis (venu de l'écran des retours), quelles que soient les dates.</summary>
+    public async Task ShowTicketAsync(string ticketNumber)
+    {
+        if (!datesInitialised)
+        {
+            datesInitialised = true;
+            FromText = ToText = FormatDate(today());
+        }
+
+        TicketQuery = ticketNumber;
+        await SearchAsync();
+    }
+
+    /// <summary>« Retour sur ce ticket » (Ctrl+R) : l'écran des retours s'ouvre sur le ticket affiché.</summary>
+    [RelayCommand]
+    public async Task BeginReturnAsync()
+    {
+        if (IsStepOpen || IsBusy || !CanReturnSelected || Detail is not { } ticket)
+        {
+            return;
+        }
+
+        await OpenReturn!(ticket.Sale);
     }
 
     // ---------- Annulation ----------

@@ -157,6 +157,8 @@ dans `DECISIONS.md`), à valider. Le mode secours hors ligne (O4) n'est pas dév
 - Fusionné : écran Caisse (impayés, règlement groupé espèces/TPE, session de caisse,
   entrées et sorties d'espèces). Corrigé : la touche `*` du clavier principal est reconnue
   au texte saisi dans l'écran de vente comme dans la caisse. **701 tests réussis.**
+- Fusionné : retours clients (Ctrl+R dans la vente, aperçu du remboursement par le serveur,
+  historique) et administration des motifs de retour. **740 tests réussis.**
 
 
 ## 13/11/2026 — Prototype

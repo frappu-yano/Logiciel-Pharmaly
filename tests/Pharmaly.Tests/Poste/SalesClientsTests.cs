@@ -141,4 +141,49 @@ public sealed class SalesClientsTests
             ],
             transport.Sent);
     }
+
+    [Fact]
+    public async Task Les_retours_utilisent_les_routes_du_serveur()
+    {
+        var client = new ReturnsClient(transport);
+        var id = Guid.Parse("6f0a3c0e-6f0e-4f43-9f6e-0d3b8c1d2a11");
+        var preview = new PreviewReturnRequest(id, id, []);
+        var create = new CreateReturnRequest(Guid.NewGuid(), id, id, [], null, 10m);
+        var createReason = new CreateReturnReasonRequest(Guid.NewGuid(), "Autre", ReturnStockDestinations.None);
+        var updateReason = new UpdateReturnReasonRequest(Guid.NewGuid(), "Autre", ReturnStockDestinations.None, false);
+
+        await client.FindReturnableAsync(" TK/12 ", CancellationToken.None);
+        await client.PreviewAsync(preview, CancellationToken.None);
+        await client.CreateReturnAsync(create, CancellationToken.None);
+        Assert.Empty(await client.ListReturnsAsync(new ReturnsHistoryQuery(Ticket: "D1"), CancellationToken.None));
+        await client.GetReturnAsync(id, CancellationToken.None);
+        Assert.Empty(await client.ListReasonsAsync(false, CancellationToken.None));
+        await client.ListReasonsAsync(true, CancellationToken.None);
+        await client.CreateReasonAsync(createReason, CancellationToken.None);
+        await client.UpdateReasonAsync(id, updateReason, CancellationToken.None);
+
+        Assert.Equal(
+            [
+                (HttpMethod.Get, "/retours/ticket/TK%2F12", null, true),
+                (HttpMethod.Post, "/retours/apercu", preview, false),
+                (HttpMethod.Post, "/retours", create, false),
+                (HttpMethod.Get, "/retours?ticket=D1", null, false),
+                (HttpMethod.Get, $"/retours/{id}", null, true),
+                (HttpMethod.Get, "/retours/motifs", null, false),
+                (HttpMethod.Get, "/retours/motifs?tous=true", null, false),
+                (HttpMethod.Post, "/retours/motifs", createReason, false),
+                (HttpMethod.Put, $"/retours/motifs/{id}", updateReason, false),
+            ],
+            transport.Sent);
+    }
+
+    [Fact]
+    public void Les_filtres_de_l_historique_des_retours_deviennent_les_parametres_attendus_par_le_serveur()
+    {
+        var saleId = Guid.Parse("6f0a3c0e-6f0e-4f43-9f6e-0d3b8c1d2a11");
+        Assert.Equal(string.Empty, ReturnsClient.ToQueryString(new ReturnsHistoryQuery()));
+        Assert.Equal(
+            "?du=2026-11-01&au=2026-11-16&ticket=D1-0001&vente=6f0a3c0e-6f0e-4f43-9f6e-0d3b8c1d2a11&limite=50",
+            ReturnsClient.ToQueryString(new ReturnsHistoryQuery(new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 16), " D1-0001 ", saleId, 50)));
+    }
 }

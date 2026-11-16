@@ -1,0 +1,113 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Pharmaly.Poste.Modules.Administration"
+             x:Class="Pharmaly.Poste.Modules.Administration.ReturnReasonsView"
+             x:DataType="local:ReturnReasonsViewModel">
+  <Grid>
+    <DockPanel IsEnabled="{Binding !IsConfirming}">
+
+      <Border DockPanel.Dock="Bottom" Classes="message error" Margin="0,12,0,0"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock x:Name="ReasonsErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+      </Border>
+      <Border DockPanel.Dock="Bottom" Classes="message info" Margin="0,12,0,0"
+              IsVisible="{Binding InfoMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock x:Name="ReasonsInfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+      </Border>
+
+      <Grid ColumnDefinitions="*,380" ColumnSpacing="16">
+
+        <!-- Motifs -->
+        <Border Classes="card" Padding="0">
+          <DockPanel>
+            <Border DockPanel.Dock="Top" Padding="16,10" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Motifs de retour" FontWeight="SemiBold" />
+                <TextBlock Grid.Column="1" Classes="label" Text="↑ ↓ puis Entrée pour modifier" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <ListBox x:Name="ReasonsList" ItemsSource="{Binding Reasons}" SelectedItem="{Binding SelectedReason}"
+                     Background="Transparent">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:ReasonRowViewModel">
+                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                    <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Classes="label" Text="{Binding DestinationText}" VerticalAlignment="Center" FontSize="13" />
+                    <Border Grid.Column="2" Classes="state" Classes.active="{Binding IsActive}">
+                      <TextBlock Text="{Binding StateText}" FontSize="12" FontWeight="Medium" />
+                    </Border>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="10">
+          <!-- Modification -->
+          <Border Classes="card" Padding="14,12" IsVisible="{Binding HasSelection}">
+            <StackPanel Spacing="6">
+              <TextBlock x:Name="SelectedReasonLabel" Text="{Binding SelectedTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock Classes="label" Text="Libellé" />
+              <TextBox x:Name="EditLabelBox" Text="{Binding EditLabel}" Padding="10,9" MaxLength="100" />
+              <TextBlock Classes="label" Text="Destination de la marchandise" />
+              <ComboBox x:Name="EditDestinationBox" ItemsSource="{Binding Destinations}" SelectedItem="{Binding EditDestination}"
+                        HorizontalAlignment="Stretch" />
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Button x:Name="SaveReasonButton" Classes="primary" Content="Enregistrer (Ctrl+S)" Command="{Binding SaveCommand}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="8,10" />
+                <Button Grid.Column="1" x:Name="ToggleReasonButton" Classes="quiet" Command="{Binding ToggleStateCommand}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="8,10">
+                  <TextBlock>
+                    <Run Text="{Binding ToggleStateLabel}" /><Run Text=" (Ctrl+D)" />
+                  </TextBlock>
+                </Button>
+              </Grid>
+              <TextBlock Classes="label" TextWrapping="Wrap" FontSize="12"
+                         Text="Les retours déjà enregistrés gardent le libellé et la destination de leur époque." />
+            </StackPanel>
+          </Border>
+
+          <!-- Création -->
+          <Border Classes="card" Padding="14,12">
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Nouveau motif" FontWeight="SemiBold" />
+                <TextBlock Grid.Column="1" Classes="label" Text="Ctrl+N" VerticalAlignment="Center" />
+              </Grid>
+              <TextBox x:Name="NewReasonLabelBox" Text="{Binding NewLabel}" PlaceholderText="Libellé" Padding="10,9" MaxLength="100" />
+              <ComboBox x:Name="NewDestinationBox" ItemsSource="{Binding Destinations}" SelectedItem="{Binding NewDestination}"
+                        HorizontalAlignment="Stretch" />
+              <Button x:Name="CreateReasonButton" Classes="primary" Content="Créer le motif (Entrée)" Command="{Binding CreateCommand}"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            </StackPanel>
+          </Border>
+          <TextBlock Classes="label" TextWrapping="Wrap" FontSize="12"
+                     Text="Destination : ↑ ↓ sur la liste déroulante. « Pas de remise en stock » : la marchandise rendue sort du circuit, aucun stock n'est réintégré." />
+        </StackPanel>
+        </ScrollViewer>
+      </Grid>
+    </DockPanel>
+
+    <!-- Confirmation -->
+    <Border x:Name="ReasonConfirmationPanel" Background="#99111111" IsVisible="{Binding IsConfirming}" ZIndex="10">
+      <Border Classes="card" Width="460" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="16">
+          <TextBlock Text="Confirmation" FontSize="20" FontWeight="Bold" />
+          <TextBlock x:Name="ReasonConfirmationLabel" Text="{Binding Confirmation.Message}" TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+            <Button Classes="quiet" Content="Annuler (Échap)" Command="{Binding CancelConfirmationCommand}"
+                    HorizontalAlignment="Stretch" MinHeight="46" Focusable="False" />
+            <Button Grid.Column="1" Classes="primary" Command="{Binding ConfirmCommand}" Focusable="False"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+              <TextBlock>
+                <Run Text="{Binding Confirmation.ConfirmLabel}" /><Run Text=" (Entrée)" />
+              </TextBlock>
+            </Button>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </Border>
+  </Grid>
+</UserControl>

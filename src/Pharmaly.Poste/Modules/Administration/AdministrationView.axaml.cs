@@ -21,6 +21,11 @@ public sealed partial class AdministrationView : UserControl, IModuleView
         {
             viewModel.PropertyChanged += (_, change) =>
             {
+                if (change.PropertyName == nameof(AdministrationViewModel.Tab))
+                {
+                    FocusAfterLayout();
+                }
+
                 // La liste arrive du serveur après l'ouverture du module : si le curseur attendait
                 // sur la liste vide, il passe sur l'employé sélectionné.
                 if (change.PropertyName == nameof(AdministrationViewModel.SelectedEmployee) && listAwaitsFocus)
@@ -31,9 +36,15 @@ public sealed partial class AdministrationView : UserControl, IModuleView
         }
     }
 
-    /// <summary>Le curseur va sur la liste des employés : ↑ ↓ pour choisir, Entrée pour aller aux droits.</summary>
+    /// <summary>Le curseur va sur la liste de l'onglet : employés (↑ ↓ puis Entrée pour aller aux droits) ou motifs.</summary>
     public void FocusDefault()
     {
+        if (ViewModel is { IsReturnReasonsTab: true })
+        {
+            ReturnReasonsView.FocusDefault();
+            return;
+        }
+
         // Les lignes viennent peut-être d'être rechargées : elles doivent exister avant de recevoir le curseur.
         EmployeeList.UpdateLayout();
         if (EmployeeList.SelectedIndex >= 0 && EmployeeList.ContainerFromIndex(EmployeeList.SelectedIndex) is { } container)
@@ -55,6 +66,21 @@ public sealed partial class AdministrationView : UserControl, IModuleView
             return;
         }
 
+        var control = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        if (!viewModel.IsConfirming && !viewModel.ReturnReasons.IsConfirming && control && e.Key is Key.E or Key.M)
+        {
+            e.Handled = true;
+            await viewModel.ShowTabAsync(e.Key == Key.M ? AdministrationTab.ReturnReasons : AdministrationTab.Employees);
+            FocusAfterLayout();
+            return;
+        }
+
+        if (viewModel.IsReturnReasonsTab)
+        {
+            await ReturnReasonsView.HandleKeyAsync(e);
+            return;
+        }
+
         if (viewModel.IsConfirming)
         {
             // Tant que la confirmation est affichée, le clavier ne sert qu'à y répondre.
@@ -72,7 +98,6 @@ public sealed partial class AdministrationView : UserControl, IModuleView
             return;
         }
 
-        var control = e.KeyModifiers.HasFlag(KeyModifiers.Control);
         switch (e.Key)
         {
             case Key.S when control:

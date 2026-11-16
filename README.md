@@ -83,6 +83,8 @@ du stock, un site, un compte de caisse et un administrateur, puis ouvre le logic
 identifiants sont écrits dans `ACCES-ESSAI.txt`. Cette installation est rejouée à chaque
 envoi sur une machine Windows neuve par l'intégration continue.
 
+Port du serveur : 5443 par défaut ; pour en changer, `--Transport:HttpsPort=NNNN` ou la variable d'environnement `Transport__HttpsPort` (pas `appsettings.Local.json`).
+
 Commande utilisée par l'essai pour le stock : `--stock-fictif CODE_SITE QUANTITE MATRICULE`
 (refusée si la base contient déjà le moindre mouvement de stock).
 
