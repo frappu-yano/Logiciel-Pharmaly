@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using System.Net.Http.Json;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,6 +49,9 @@ public sealed class ServerFixture : IAsyncLifetime
 
     public IServiceProvider Services => factory!.Services;
 
+    /// <summary>Horloge du serveur : l'heure réelle, décalable pour passer au lendemain.</summary>
+    public AdjustableClock Clock { get; } = new();
+
     public async ValueTask InitializeAsync()
     {
         await ExecuteAsAdminAsync($"CREATE DATABASE {databaseName}");
@@ -58,7 +62,10 @@ public sealed class ServerFixture : IAsyncLifetime
         DataSource = NpgsqlDataSource.Create(ConnectionString);
 
         factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.UseSetting("ConnectionStrings:Pharmaly", ConnectionString));
+        {
+            builder.UseSetting("ConnectionStrings:Pharmaly", ConnectionString);
+            builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(Clock));
+        });
         Client = factory.CreateClient();
 
         var setup = Services.GetRequiredService<SiteSetup>();
@@ -118,4 +125,18 @@ public sealed class ServerFixture : IAsyncLifetime
         await using var command = new NpgsqlCommand(sql, connection);
         await command.ExecuteNonQueryAsync();
     }
+}
+
+/// <summary>Heure réelle plus un décalage choisi par le test (zéro par défaut).</summary>
+public sealed class AdjustableClock : TimeProvider
+{
+    private long offsetTicks;
+
+    public TimeSpan Offset
+    {
+        get => TimeSpan.FromTicks(Interlocked.Read(ref offsetTicks));
+        set => Interlocked.Exchange(ref offsetTicks, value.Ticks);
+    }
+
+    public override DateTimeOffset GetUtcNow() => base.GetUtcNow() + Offset;
 }

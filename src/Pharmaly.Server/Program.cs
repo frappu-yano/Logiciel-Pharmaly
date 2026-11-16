@@ -4,11 +4,13 @@ using Pharmaly.Contracts;
 using Pharmaly.Server.Access;
 using Pharmaly.Server.Cash;
 using Pharmaly.Server.Catalog;
+using Pharmaly.Server.Closures;
 using Pharmaly.Server.Customers;
 using Pharmaly.Server.Database;
 using Pharmaly.Server.Maintenance;
 using Pharmaly.Server.Operations;
 using Pharmaly.Server.Receivables;
+using Pharmaly.Server.Returns;
 using Pharmaly.Server.Sales;
 using Pharmaly.Server.Stock;
 using Pharmaly.Server.SupplierNotes;
@@ -56,6 +58,9 @@ builder.Services.AddSingleton<SiteSetup>();
 builder.Services.AddSingleton<BackupService>();
 builder.Services.AddSingleton<OperationRunner>();
 builder.Services.AddSingleton<StockEngine>();
+// Horloge du serveur : remplacée dans les tests pour changer de jour.
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<StoreClock>();
 builder.Services.AddSupplierNotes();
 
 var app = builder.Build();
@@ -160,6 +165,8 @@ app.MapCashEndpoints();
 app.MapSaleEndpoints();
 app.MapCustomerEndpoints();
 app.MapReceivableEndpoints();
+app.MapReturnEndpoints();
+app.MapClosureEndpoints();
 
 await app.RunAsync();
 

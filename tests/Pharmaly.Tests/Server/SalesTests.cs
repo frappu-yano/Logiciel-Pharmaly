@@ -895,16 +895,26 @@ public sealed class SalesTests(ServerFixture server) : IClassFixture<ServerFixtu
     [Fact]
     public async Task Une_vente_dont_la_journee_est_cloturee_ne_s_annule_plus()
     {
-        var product = await kit.CreateProductAsync(stock: 5);
-        var sale = await kit.SellOkAsync(SalesTestKit.Cash(product.Id));
-        // La clôture (lot suivant) fixera la journée comptable ; elle est posée ici à la main.
-        await kit.ScalarAsync<object>("UPDATE sales SET business_date = current_date WHERE id = @Id", new { sale.Id });
+        // La journée comptable est fixée par une vraie clôture, sur un magasin réservé à ce test
+        // (la base interdit désormais de la poser à la main sans clôture correspondante).
+        var closures = new ClosureTestKit(server);
+        var store = await closures.CreateStoreAsync();
+        var poste = await closures.CreateRegisterClientAsync(store, 1000m);
+        var product = await closures.ProductAsync(store, price: 1200m, stock: 5);
+        var sale = await kit.SellOkAsync(SalesTestKit.Cash(product.Id), poste);
+        await ClosureTestKit.CloseSessionOkAsync(poste);
+        await ClosureTestKit.CloseDayOkAsync(poste);
+        Assert.NotNull(await kit.ScalarAsync<DateTime?>("SELECT business_date FROM sales WHERE id = @Id", new { sale.Id }));
+        await ClosureTestKit.OpenAsync(poste, 1000m);
 
         await StockTestKit.AssertErrorAsync(
-            await SalesTestKit.CancelAsync(server.AdminClient, sale.Id), HttpStatusCode.Conflict, SaleErrorCodes.DayClosed);
+            await SalesTestKit.CancelAsync(poste, sale.Id), HttpStatusCode.Conflict, SaleErrorCodes.DayClosed);
 
-        Assert.Equal(4m, await kit.StockAsync(product.Id));
-        Assert.Equal(SaleStatuses.Completed, (await kit.ReadSaleAsync(sale.Id)).Status);
+        Assert.Equal(4m, await kit.Stock.ReadLevelAsync(product.Id, store.MainLocationId));
+        Assert.Equal(
+            SaleStatuses.Completed,
+            (await SalesTestKit.ReadAsync<SaleDetail>(await poste.GetAsync(SaleRoutes.Sale(sale.Id)))).Status);
+        Assert.Equal(1000m, (await kit.SummaryAsync(poste)).ExpectedCash);
     }
 
     // ---------- Historique ----------

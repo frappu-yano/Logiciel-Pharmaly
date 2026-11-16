@@ -3,6 +3,7 @@ using Npgsql;
 using Pharmaly.Contracts;
 using Pharmaly.Domain;
 using Pharmaly.Server.Access;
+using Pharmaly.Server.Closures;
 using Pharmaly.Server.Operations;
 
 namespace Pharmaly.Server.Cash;
@@ -112,6 +113,10 @@ public static class CashEndpoints
             var alreadyOpen = new BusinessException(
                 CashErrorCodes.SessionAlreadyOpen, "La caisse de ce poste est déjà ouverte.", StatusCodes.Status409Conflict);
             var registerAccountId = operation.Identity.RegisterAccountId;
+
+            // Une ouverture pendant la clôture de la journée attend sa fin : la nouvelle session
+            // appartient alors à la journée suivante.
+            await BusinessDayLock.SharedAsync(operation, operation.Identity.StoreId);
 
             // Le compte de caisse est verrouillé : deux ouvertures simultanées passent l'une après l'autre.
             await operation.Connection.ExecuteAsync(
@@ -223,6 +228,10 @@ public static class CashEndpoints
                 WHERE cash_session_id = @Id AND kind = 'REMBOURSEMENT_VENTE') AS CashRefunds,
               (SELECT COALESCE(sum(refund_amount), 0) FROM sale_cancellations
                 WHERE cash_session_id = @Id AND refund_method = 'TPE') AS CardRefunds,
+              (SELECT COALESCE(sum(refund_amount), 0) FROM returns
+                WHERE cash_session_id = @Id AND refund_method = 'ESPECES') AS ReturnCashRefunds,
+              (SELECT COALESCE(sum(refund_amount), 0) FROM returns
+                WHERE cash_session_id = @Id AND refund_method = 'TPE') AS ReturnCardRefunds,
               (SELECT count(*) FROM payments WHERE cash_session_id = @Id AND status = 'EN_ATTENTE')
               + (SELECT count(*) FROM receivable_settlements WHERE cash_session_id = @Id AND status = 'EN_ATTENTE') AS PendingCount,
               (SELECT COALESCE(sum(amount), 0) FROM payments WHERE cash_session_id = @Id AND status = 'EN_ATTENTE')
@@ -235,8 +244,10 @@ public static class CashEndpoints
         return Results.Ok(new CashSessionSummary(
             session, totals.SaleCash, totals.SaleCard, totals.SettlementCash, totals.SettlementCard,
             totals.CashIn, totals.CashOut, totals.CashRefunds, totals.CardRefunds,
-            session.OpeningFloat + totals.SaleCash + totals.SettlementCash + totals.CashIn - totals.CashOut - totals.CashRefunds,
-            (int)totals.PendingCount, totals.PendingAmount));
+            ClosureReports.ExpectedCash(
+                session.OpeningFloat, totals.SaleCash, totals.SettlementCash, totals.CashIn, totals.CashOut,
+                totals.CashRefunds, totals.ReturnCashRefunds),
+            (int)totals.PendingCount, totals.PendingAmount, totals.ReturnCashRefunds, totals.ReturnCardRefunds));
     }
 
     private sealed class TotalsRow
@@ -249,6 +260,8 @@ public static class CashEndpoints
         public decimal CashOut { get; init; }
         public decimal CashRefunds { get; init; }
         public decimal CardRefunds { get; init; }
+        public decimal ReturnCashRefunds { get; init; }
+        public decimal ReturnCardRefunds { get; init; }
         public long PendingCount { get; init; }
         public decimal PendingAmount { get; init; }
     }

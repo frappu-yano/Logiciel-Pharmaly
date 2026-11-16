@@ -141,6 +141,169 @@ public static class MoneyInvariant
               AND NOT EXISTS (SELECT 1 FROM sale_lines l
                               WHERE l.sale_id::text = m.source_id AND l.product_id = m.product_id AND m.source_type = 'VENTE')
             """),
+        // ---------- Retours ----------
+        ("un retour porte sur une vente validée, qu'on ne peut plus annuler",
+            "SELECT count(*) FROM returns r JOIN sales s ON s.id = r.sale_id WHERE s.status <> 'VALIDEE' OR s.store_id <> r.store_id"),
+        ("la quantité retournée d'une ligne ne dépasse jamais la quantité vendue",
+            """
+            SELECT count(*) FROM sale_lines l
+            WHERE (SELECT COALESCE(sum(rl.quantity), 0) FROM return_lines rl WHERE rl.sale_line_id = l.id) > l.quantity
+            """),
+        ("une ligne de retour reprend le produit et le prix de sa ligne de ticket, sur le ticket du retour",
+            """
+            SELECT count(*) FROM return_lines rl
+            JOIN returns r ON r.id = rl.return_id
+            JOIN sale_lines l ON l.id = rl.sale_line_id
+            WHERE l.sale_id <> r.sale_id OR l.product_id <> rl.product_id OR l.unit_price <> rl.unit_price
+            """),
+        ("le remboursement d'un retour = somme de ses lignes ; un retour a au moins une ligne",
+            """
+            SELECT count(*) FROM returns r
+            WHERE r.refund_amount <> (SELECT COALESCE(sum(rl.refund_amount), -1) FROM return_lines rl WHERE rl.return_id = r.id)
+               OR (r.refund_amount > 0) <> (r.refund_method IS NOT NULL)
+            """),
+        ("la somme des remboursements d'un ticket ne dépasse jamais son total, ni pour une ligne son montant",
+            """
+            SELECT (SELECT count(*) FROM sales s
+                    WHERE (SELECT COALESCE(sum(r.refund_amount), 0) FROM returns r WHERE r.sale_id = s.id) > s.total)
+                 + (SELECT count(*) FROM sale_lines l
+                    WHERE (SELECT COALESCE(sum(rl.refund_amount), 0) FROM return_lines rl WHERE rl.sale_line_id = l.id) > l.line_total)
+            """),
+        ("un ticket entièrement retourné est remboursé exactement de son total",
+            """
+            SELECT count(*) FROM sales s
+            WHERE EXISTS (SELECT 1 FROM returns r WHERE r.sale_id = s.id)
+              AND NOT EXISTS (SELECT 1 FROM sale_lines l
+                              WHERE (SELECT COALESCE(sum(rl.quantity), 0) FROM return_lines rl WHERE rl.sale_line_id = l.id) < l.quantity)
+              AND (SELECT sum(r.refund_amount) FROM returns r WHERE r.sale_id = s.id) <> s.total
+            """),
+        ("un retour rembourse par le moyen qui a encaissé ; jamais sur une créance non soldée",
+            """
+            SELECT count(*) FROM returns r JOIN sales s ON s.id = r.sale_id
+            WHERE (s.payment_mode IN ('ESPECES', 'TPE') AND r.refund_method IS NOT NULL AND r.refund_method <> s.payment_mode)
+               OR (s.payment_mode = 'IMPAYE'
+                   AND NOT EXISTS (SELECT 1 FROM receivables c
+                                   JOIN receivable_settlement_items i ON i.receivable_id = c.id
+                                   JOIN receivable_settlements st ON st.id = i.settlement_id
+                                   WHERE c.sale_id = s.id AND c.status = 'SOLDEE' AND st.status = 'CONFIRME'
+                                     AND (r.refund_method IS NULL OR r.refund_method = st.method)))
+            """),
+        ("une ligne de retour réintégrée a exactement un mouvement RETOUR de sa quantité, à l'emplacement du retour ; sinon aucun",
+            """
+            SELECT count(*) FROM return_lines rl JOIN returns r ON r.id = rl.return_id
+            WHERE (SELECT count(*) FROM stock_movements m
+                   WHERE m.source_type = 'RETOUR' AND m.source_id = r.id::text AND m.product_id = rl.product_id
+                     AND m.movement_type = 'RETOUR' AND m.quantity = rl.quantity
+                     AND m.location_id = r.destination_location_id)
+                  <> CASE WHEN rl.restocked_quantity > 0 THEN 1 ELSE 0 END
+               OR (SELECT count(*) FROM stock_movements m
+                   WHERE m.source_type = 'RETOUR' AND m.source_id = r.id::text AND m.product_id = rl.product_id)
+                  <> CASE WHEN rl.restocked_quantity > 0 THEN 1 ELSE 0 END
+               OR (rl.restocked_quantity > 0) <> (r.destination_location_id IS NOT NULL)
+            """),
+        ("aucun mouvement RETOUR sans ligne de retour",
+            """
+            SELECT count(*) FROM stock_movements m
+            WHERE (m.movement_type = 'RETOUR' OR m.source_type = 'RETOUR')
+              AND NOT EXISTS (SELECT 1 FROM return_lines rl
+                              WHERE rl.return_id::text = m.source_id AND rl.product_id = m.product_id
+                                AND m.source_type = 'RETOUR' AND m.movement_type = 'RETOUR')
+            """),
+        ("un retour est rattaché à une session du même compte de caisse et du même site",
+            """
+            SELECT count(*) FROM returns r JOIN cash_sessions cs ON cs.id = r.cash_session_id
+            WHERE cs.register_account_id <> r.register_account_id OR cs.store_id <> r.store_id
+            """),
+        ("les numéros de retour d'un site se suivent sans trou ni doublon",
+            """
+            SELECT count(*) FROM (SELECT store_id, count(*) AS total, max(return_seq) AS last, min(return_seq) AS first
+                                  FROM returns GROUP BY store_id) t
+            WHERE t.first <> 1 OR t.last <> t.total
+            """),
+
+        // ---------- Fermeture des caisses et clôture ----------
+        ("une caisse fermée garde les espèces attendues exactes et l'écart = compté − attendu ; aucun TPE en attente",
+            """
+            SELECT count(*) FROM cash_sessions cs
+            WHERE cs.status = 'FERMEE'
+              AND (cs.cash_difference <> cs.counted_cash - cs.expected_cash
+                   OR cs.expected_cash <> cs.opening_float
+                      + (SELECT COALESCE(sum(amount), 0) FROM payments
+                          WHERE cash_session_id = cs.id AND method = 'ESPECES' AND status IN ('CONFIRME', 'REMBOURSE'))
+                      + (SELECT COALESCE(sum(amount), 0) FROM receivable_settlements
+                          WHERE cash_session_id = cs.id AND method = 'ESPECES' AND status = 'CONFIRME')
+                      + (SELECT COALESCE(sum(amount), 0) FROM cash_movements WHERE cash_session_id = cs.id AND kind = 'ENTREE')
+                      - (SELECT COALESCE(sum(amount), 0) FROM cash_movements
+                          WHERE cash_session_id = cs.id AND kind IN ('SORTIE', 'REMBOURSEMENT_VENTE'))
+                      - (SELECT COALESCE(sum(refund_amount), 0) FROM returns
+                          WHERE cash_session_id = cs.id AND refund_method = 'ESPECES')
+                   OR EXISTS (SELECT 1 FROM payments p WHERE p.cash_session_id = cs.id AND p.status = 'EN_ATTENTE')
+                   OR EXISTS (SELECT 1 FROM receivable_settlements st WHERE st.cash_session_id = cs.id AND st.status = 'EN_ATTENTE'))
+            """),
+        ("toute journée comptable inscrite sur une opération correspond à une clôture de son magasin",
+            """
+            SELECT count(*) FROM (
+                SELECT store_id, business_date FROM sales
+                UNION ALL SELECT store_id, business_date FROM payments
+                UNION ALL SELECT store_id, business_date FROM receivable_settlements
+                UNION ALL SELECT store_id, business_date FROM cash_movements
+                UNION ALL SELECT store_id, business_date FROM sale_cancellations
+                UNION ALL SELECT store_id, business_date FROM returns
+                UNION ALL SELECT store_id, business_date FROM cash_sessions) o
+            WHERE o.business_date IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM daily_closures dc WHERE dc.store_id = o.store_id AND dc.business_date = o.business_date)
+            """),
+        ("une opération appartient à la même journée que sa session de caisse ; une annulation, à celle de sa vente",
+            """
+            SELECT (SELECT count(*) FROM sales o JOIN cash_sessions cs ON cs.id = o.cash_session_id
+                    WHERE o.business_date IS DISTINCT FROM cs.business_date)
+                 + (SELECT count(*) FROM payments o JOIN cash_sessions cs ON cs.id = o.cash_session_id
+                    WHERE o.business_date IS DISTINCT FROM cs.business_date)
+                 + (SELECT count(*) FROM receivable_settlements o JOIN cash_sessions cs ON cs.id = o.cash_session_id
+                    WHERE o.business_date IS DISTINCT FROM cs.business_date)
+                 + (SELECT count(*) FROM cash_movements o JOIN cash_sessions cs ON cs.id = o.cash_session_id
+                    WHERE o.business_date IS DISTINCT FROM cs.business_date)
+                 + (SELECT count(*) FROM returns o JOIN cash_sessions cs ON cs.id = o.cash_session_id
+                    WHERE o.business_date IS DISTINCT FROM cs.business_date)
+                 + (SELECT count(*) FROM sale_cancellations x JOIN sales s ON s.id = x.sale_id
+                    WHERE x.business_date IS DISTINCT FROM s.business_date)
+            """),
+        ("une journée clôturée ne contient ni caisse ouverte ni paiement par carte en attente",
+            """
+            SELECT (SELECT count(*) FROM cash_sessions WHERE business_date IS NOT NULL AND status <> 'FERMEE')
+                 + (SELECT count(*) FROM payments WHERE business_date IS NOT NULL AND status = 'EN_ATTENTE')
+                 + (SELECT count(*) FROM receivable_settlements WHERE business_date IS NOT NULL AND status = 'EN_ATTENTE')
+                 + (SELECT count(*) FROM sales WHERE business_date IS NOT NULL AND status = 'EN_ATTENTE_TPE')
+            """),
+        ("le rapport figé d'une clôture correspond aux opérations de sa journée",
+            """
+            SELECT count(*) FROM daily_closures dc
+            WHERE (dc.report #>> '{revenue,salesTotal}')::numeric
+                  <> (SELECT COALESCE(sum(s.total), 0) FROM sales s
+                      WHERE s.store_id = dc.store_id AND s.business_date = dc.business_date AND s.status = 'VALIDEE')
+               OR (dc.report #>> '{treasury,saleCash}')::numeric
+                  <> (SELECT COALESCE(sum(p.amount), 0) FROM payments p
+                      WHERE p.store_id = dc.store_id AND p.business_date = dc.business_date AND p.method = 'ESPECES'
+                        AND p.status IN ('CONFIRME', 'REMBOURSE'))
+               OR (dc.report #>> '{treasury,oldReceivablesCash}')::numeric + (dc.report #>> '{treasury,sameDayReceivablesCash}')::numeric
+                  + (dc.report #>> '{treasury,oldReceivablesCard}')::numeric + (dc.report #>> '{treasury,sameDayReceivablesCard}')::numeric
+                  <> (SELECT COALESCE(sum(st.amount), 0) FROM receivable_settlements st
+                      WHERE st.store_id = dc.store_id AND st.business_date = dc.business_date AND st.status = 'CONFIRME')
+               OR (dc.report #>> '{revenue,returnsTotal}')::numeric
+                  <> (SELECT COALESCE(sum(r.refund_amount), 0) FROM returns r
+                      WHERE r.store_id = dc.store_id AND r.business_date = dc.business_date)
+               OR (dc.report #>> '{treasury,expectedCash}')::numeric
+                  <> (dc.report #>> '{treasury,openingFloats}')::numeric + (dc.report #>> '{treasury,netCash}')::numeric
+               OR (dc.report #>> '{treasury,expectedCash}')::numeric
+                  <> (SELECT COALESCE(sum(cs.expected_cash), 0) FROM cash_sessions cs
+                      WHERE cs.store_id = dc.store_id AND cs.business_date = dc.business_date)
+               OR (dc.report #>> '{treasury,cashDifference}')::numeric
+                  <> (SELECT COALESCE(sum(cs.cash_difference), 0) FROM cash_sessions cs
+                      WHERE cs.store_id = dc.store_id AND cs.business_date = dc.business_date)
+               OR (dc.report #>> '{revenue,netRevenue}')::numeric
+                  <> (dc.report #>> '{revenue,salesTotal}')::numeric - (dc.report #>> '{revenue,returnsTotal}')::numeric
+               OR (dc.report ->> 'forcedWithUnknownOperations')::boolean <> dc.forced
+            """),
         ("les numéros de ticket d'un site se suivent sans trou ni doublon",
             """
             SELECT count(*) FROM (SELECT store_id, count(*) AS tickets, max(ticket_seq) AS last, min(ticket_seq) AS first

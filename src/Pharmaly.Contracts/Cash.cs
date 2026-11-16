@@ -85,9 +85,11 @@ public sealed record CurrentCashSessionResponse(CashSessionInfo? Session);
 /// <param name="CashOut">Sorties d'espèces hors vente.</param>
 /// <param name="CashRefunds">Espèces rendues par cette session pour des ventes annulées.</param>
 /// <param name="CardRefunds">Remboursements par carte faits par cette session pour des ventes annulées.</param>
-/// <param name="ExpectedCash">Fond + espèces encaissées + entrées − sorties − remboursements en espèces.</param>
+/// <param name="ExpectedCash">Fond + espèces encaissées + entrées − sorties − remboursements en espèces (annulations et retours).</param>
 /// <param name="PendingCardCount">Paiements par carte en attente de réponse (ventes et règlements).</param>
 /// <param name="PendingCardAmount">Leur montant : compté nulle part ailleurs.</param>
+/// <param name="ReturnCashRefunds">Espèces rendues par cette session pour des retours clients.</param>
+/// <param name="ReturnCardRefunds">Remboursements par carte faits par cette session pour des retours clients.</param>
 public sealed record CashSessionSummary(
     CashSessionInfo Session,
     decimal SaleCashCollected,
@@ -100,7 +102,9 @@ public sealed record CashSessionSummary(
     decimal CardRefunds,
     decimal ExpectedCash,
     int PendingCardCount,
-    decimal PendingCardAmount);
+    decimal PendingCardAmount,
+    decimal ReturnCashRefunds = 0,
+    decimal ReturnCardRefunds = 0);
 
 /// <summary>Kind : ENTREE ou SORTIE. Reason est obligatoire.</summary>
 public sealed record CashMovementRequest(Guid OperationId, string Kind, decimal Amount, string Reason);
