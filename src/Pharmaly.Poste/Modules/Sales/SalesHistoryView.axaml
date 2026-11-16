@@ -1,0 +1,257 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Pharmaly.Poste.Modules.Sales"
+             x:Class="Pharmaly.Poste.Modules.Sales.SalesHistoryView"
+             x:DataType="local:SalesHistoryViewModel"
+             Focusable="True">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.number">
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontFeatures" Value="tnum" />
+    </Style>
+    <Style Selector="TextBlock.stepTitle">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.stepError">
+      <Setter Property="Foreground" Value="#9A2B12" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.cancelled">
+      <Setter Property="Foreground" Value="#9A2B12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.step">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="MinHeight" Value="46" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.refuse">
+      <Setter Property="Background" Value="{StaticResource PeachBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="18,12" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Border.warning">
+      <Setter Property="Background" Value="{StaticResource PeachSoftBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource PeachBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="14,12" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid>
+    <DockPanel Margin="16,12">
+
+      <!-- Filtres -->
+      <Border DockPanel.Dock="Top" Classes="card" Padding="14,10" Margin="0,0,0,10">
+        <Grid ColumnDefinitions="Auto,Auto,104,Auto,104,160,*" ColumnSpacing="8">
+          <TextBlock Text="Historique des ventes" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <TextBlock Grid.Column="1" Classes="label" Text="du" VerticalAlignment="Center" />
+          <TextBox Grid.Column="2" x:Name="FromBox" Text="{Binding FromText}" PlaceholderText="jj/mm/aaaa" Padding="8,8" />
+          <TextBlock Grid.Column="3" Classes="label" Text="au" VerticalAlignment="Center" />
+          <TextBox Grid.Column="4" x:Name="ToBox" Text="{Binding ToText}" PlaceholderText="jj/mm/aaaa" Padding="8,8" />
+          <ComboBox Grid.Column="5" x:Name="StatusBox" ItemsSource="{Binding StatusChoices}" SelectedItem="{Binding SelectedStatus}"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+          <TextBox Grid.Column="6" x:Name="TicketBox" Text="{Binding TicketQuery}" Padding="10,8"
+                   PlaceholderText="N° de ticket, ou scanner le code-barres du ticket" />
+        </Grid>
+      </Border>
+
+      <!-- Aide et messages -->
+      <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,10,0,0">
+        <Border Classes="message error"
+                IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock x:Name="HistoryErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
+        <Border Classes="message info"
+                IsVisible="{Binding InfoMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock x:Name="HistoryInfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+        </Border>
+        <TextBlock Classes="label" TextWrapping="Wrap"
+                   Text="Entrée : chercher · ↑ ↓ : ticket · Tab : champ suivant · Ctrl+Suppr : annuler la vente · Ctrl+T : réponse du TPE · Échap : retour à la vente" />
+      </StackPanel>
+
+      <Grid ColumnDefinitions="*,400" ColumnSpacing="14">
+
+        <!-- Tickets -->
+        <Border Classes="card" Padding="0" ClipToBounds="True">
+          <DockPanel>
+            <Border DockPanel.Dock="Top" Padding="12,8" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+              <Grid ColumnDefinitions="96,*,112,72,116" ColumnSpacing="8">
+                <TextBlock Classes="label" Text="Ticket" />
+                <TextBlock Grid.Column="1" Classes="label" Text="Date" />
+                <TextBlock Grid.Column="2" Classes="label" Text="Statut" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Paiement" />
+                <TextBlock Grid.Column="4" Classes="label number" Text="Total" />
+              </Grid>
+            </Border>
+            <ListBox x:Name="SalesList" ItemsSource="{Binding Sales}" SelectedItem="{Binding SelectedSale}"
+                     Background="Transparent" Focusable="False">
+              <ListBox.Styles>
+                <Style Selector="ListBoxItem">
+                  <Setter Property="Focusable" Value="False" />
+                  <Setter Property="Padding" Value="12,9" />
+                </Style>
+              </ListBox.Styles>
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:SaleRowViewModel">
+                  <Grid ColumnDefinitions="96,*,112,72,116" ColumnSpacing="8">
+                    <TextBlock Text="{Binding TicketNumber}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Classes="label" Text="{Binding DateText}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="2" Text="{Binding StatusText}" Classes.cancelled="{Binding IsCancelled}"
+                               VerticalAlignment="Center" FontSize="13" />
+                    <TextBlock Grid.Column="3" Text="{Binding ModeText}" VerticalAlignment="Center" FontSize="13" />
+                    <TextBlock Grid.Column="4" Classes="number" Text="{Binding TotalText}" FontWeight="SemiBold" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+
+        <!-- Détail du ticket -->
+        <Border Grid.Column="1" Classes="card" Padding="0">
+          <Grid>
+            <TextBlock Classes="emptyState" Text="Aucun ticket sélectionné" IsVisible="{Binding !HasDetail}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <DockPanel IsVisible="{Binding HasDetail}">
+              <StackPanel DockPanel.Dock="Bottom" Margin="14,0,14,12" Spacing="6">
+                <Button x:Name="CancelSaleButton" Classes="quiet step" Content="Annuler la vente (Ctrl+Suppr)"
+                        Command="{Binding BeginCancelCommand}" IsVisible="{Binding CanCancelSelected}" />
+                <Button x:Name="CardAnswerButton" Classes="primary step" Content="Réponse du TPE (Ctrl+T)"
+                        Command="{Binding BeginCardAnswerCommand}" IsVisible="{Binding CanAnswerCardSelected}" />
+              </StackPanel>
+            <DockPanel x:Name="DetailPanel" DataContext="{Binding Detail}" x:DataType="local:SaleDetailViewModel">
+              <Border DockPanel.Dock="Top" Padding="14,10" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                <StackPanel Spacing="2">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock x:Name="DetailTitleLabel" Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="1" x:Name="DetailStatusLabel" Text="{Binding StatusText}"
+                               Classes.cancelled="{Binding IsCancelled}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  </Grid>
+                  <TextBlock Classes="label" Text="{Binding Subtitle}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+
+              <Border DockPanel.Dock="Bottom" Padding="14,10" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0">
+                <StackPanel Spacing="4">
+                  <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasDiscount}">
+                    <TextBlock Text="Sous-total" />
+                    <TextBlock Grid.Column="1" Classes="number" Text="{Binding SubtotalText}" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasDiscount}">
+                    <TextBlock Text="{Binding DiscountTitle}" />
+                    <TextBlock Grid.Column="1" Classes="number" Text="{Binding DiscountText}" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Total" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" x:Name="DetailTotalLabel" Classes="number" Text="{Binding TotalText}" FontSize="22"
+                               FontWeight="Bold" />
+                  </Grid>
+                  <TextBlock x:Name="DetailPaymentLabel" Text="{Binding PaymentText}" TextWrapping="Wrap" FontWeight="Medium" />
+                  <TextBlock x:Name="DetailCancellationLabel" Classes="cancelled" Text="{Binding CancellationText}"
+                             TextWrapping="Wrap" IsVisible="{Binding HasCancellation}" />
+                </StackPanel>
+              </Border>
+
+              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Lines}" Margin="14,6">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="local:SaleDetailLineViewModel">
+                      <Grid ColumnDefinitions="*,44,96,104" ColumnSpacing="8" Margin="0,4">
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Classes="number" Text="{Binding QuantityText}" FontSize="14" />
+                        <TextBlock Grid.Column="2" Classes="label number" Text="{Binding UnitPriceText}" />
+                        <TextBlock Grid.Column="3" Classes="number" Text="{Binding LineTotalText}" FontSize="14" FontWeight="SemiBold" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </DockPanel>
+            </DockPanel>
+          </Grid>
+        </Border>
+      </Grid>
+    </DockPanel>
+
+    <!-- Étapes : annulation, réponse du TPE -->
+    <Border x:Name="HistoryStepOverlay" Background="#99111111" IsVisible="{Binding IsStepOpen}" ZIndex="10">
+      <Border Classes="card" Width="540" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid>
+
+          <!-- Motif de l'annulation -->
+          <StackPanel x:Name="CancelReasonPanel" Spacing="12"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:HistoryStep.CancelReason}}">
+            <TextBlock Classes="stepTitle" Text="{Binding StepTitle}" />
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" Text="Motif de l'annulation (obligatoire)" />
+              <TextBox x:Name="ReasonBox" Text="{Binding CancelReason}" FontSize="17" Padding="12,9" />
+            </StackPanel>
+            <TextBlock x:Name="ReasonErrorLabel" Classes="stepError" Text="{Binding StepError}"
+                       IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Ne pas annuler (Échap)" Command="{Binding CloseStepCommand}" />
+              <Button Grid.Column="1" Classes="primary step" Content="Continuer (Entrée)" Command="{Binding ValidateCancelReasonCommand}" />
+            </Grid>
+            <TextBlock Classes="label" Text="Rien n'est encore annulé : la confirmation vient ensuite." />
+          </StackPanel>
+
+          <!-- Confirmation forte -->
+          <StackPanel x:Name="CancelConfirmPanel" Spacing="12"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:HistoryStep.CancelConfirm}}">
+            <Border Classes="warning">
+              <TextBlock x:Name="CancelTitleLabel" Classes="stepTitle" Text="{Binding StepTitle}" />
+            </Border>
+            <TextBlock x:Name="CancelConsequenceLabel" Text="{Binding CancelConsequence}" TextWrapping="Wrap" FontWeight="Medium" />
+            <TextBlock TextWrapping="Wrap">
+              <Run Text="Motif : " /><Run Text="{Binding CancelReason}" FontWeight="SemiBold" />
+            </TextBlock>
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsBusy}" />
+            <TextBlock Classes="stepError" Text="{Binding StepError}"
+                       IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Classes="quiet step" Content="Retour (Échap)" Command="{Binding CloseStepCommand}" />
+              <Button Grid.Column="1" x:Name="ConfirmCancelButton" Classes="refuse step" Command="{Binding ConfirmCancelCommand}">
+                <TextBlock>
+                  <Run Text="Annuler la vente (" /><Run Text="{Binding CancelConfirmKeyLabel}" /><Run Text=")" />
+                </TextBlock>
+              </Button>
+            </Grid>
+            <TextBlock Classes="label" Text="Entrée ne confirme pas une annulation." />
+          </StackPanel>
+
+          <!-- Réponse du TPE -->
+          <StackPanel x:Name="CardAnswerPanel" Spacing="12"
+                      IsVisible="{Binding Step, Converter={x:Static local:EqualityConverter.Instance}, ConverterParameter={x:Static local:HistoryStep.CardAnswer}}">
+            <TextBlock Classes="stepTitle" Text="Paiement par carte en attente" />
+            <TextBlock Text="{Binding StepTitle}" FontSize="22" FontWeight="Bold" TextWrapping="Wrap" />
+            <TextBlock TextWrapping="Wrap" Text="Indiquez la réponse donnée par le terminal pour ce ticket." />
+            <Button Classes="primary step" Command="{Binding AcceptCardCommand}">
+              <TextBlock>
+                <Run Text="{Binding CardAcceptedKeyLabel}" FontWeight="Bold" /><Run Text=" — Paiement accepté" />
+              </TextBlock>
+            </Button>
+            <Button Classes="refuse step" Command="{Binding RefuseCardCommand}">
+              <TextBlock>
+                <Run Text="{Binding CardRefusedKeyLabel}" FontWeight="Bold" /><Run Text=" — Paiement refusé : la vente est annulée, le stock restitué" />
+              </TextBlock>
+            </Button>
+            <TextBlock Classes="label" Text="Envoi en cours…" IsVisible="{Binding IsBusy}" />
+            <TextBlock Classes="stepError" Text="{Binding StepError}"
+                       IsVisible="{Binding StepError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Button Classes="quiet step" Content="Répondre plus tard (Échap)" Command="{Binding CloseStepCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Border>
+  </Grid>
+</UserControl>

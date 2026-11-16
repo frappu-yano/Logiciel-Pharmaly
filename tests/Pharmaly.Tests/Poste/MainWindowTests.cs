@@ -161,10 +161,12 @@ public sealed class MainWindowTests
         var (window, shell) = OpenWindow();
         await SignInWithKeyboardAsync(window);
 
-        // Tous les droits : les six modules, et l'employé arrive sur le premier (état vide).
+        // Tous les droits : les six modules, et l'employé arrive sur le premier (Vente, caisse encore fermée).
         Assert.Equal(["Vente", "Bons fournisseurs", "Caisse", "Produits", "Administration", "Diagnostic"], ModuleBarTitles(window));
         var salesView = ModuleView<SalesView>(window);
-        Assert.Equal("Module en cours de développement", salesView.FindControl<TextBlock>("EmptyStateLabel")!.Text);
+        var cashClosedLabel = salesView.FindControl<TextBlock>("CashClosedLabel")!;
+        Assert.True(cashClosedLabel.IsEffectivelyVisible);
+        Assert.Equal("La caisse n'est pas ouverte", cashClosedLabel.Text);
 
         // F5 : Administration. Le curseur est sur la liste, premier employé sélectionné.
         Press(window, PhysicalKey.F5);
