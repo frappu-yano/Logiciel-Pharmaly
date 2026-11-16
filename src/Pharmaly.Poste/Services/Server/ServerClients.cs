@@ -13,10 +13,19 @@ public sealed class ServerClients
 
     public required IAdminClient Admin { get; init; }
 
+    public required ISalesClient Sales { get; init; }
+
+    public required ICustomersClient Customers { get; init; }
+
+    public required ICashSessionClient CashSession { get; init; }
+
     public static ServerClients Create(IServerTransport transport) => new()
     {
         Access = new AccessClient(transport),
         Catalog = new CatalogClient(transport),
         Admin = new AdminClient(transport),
+        Sales = new SalesClient(transport),
+        Customers = new CustomersClient(transport),
+        CashSession = new CashSessionClient(transport),
     };
 }
