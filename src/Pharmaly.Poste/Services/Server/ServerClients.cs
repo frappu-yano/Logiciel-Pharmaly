@@ -1,0 +1,22 @@
+namespace Pharmaly.Poste.Services.Server;
+
+/// <summary>
+/// Les clients par module, tous construits sur le même transport. Pour un nouveau module
+/// (bons, ventes, caisse…) : créer <c>XxxClient.cs</c> avec son interface dans ce dossier,
+/// puis ajouter ici une propriété et une ligne dans <see cref="Create"/>.
+/// </summary>
+public sealed class ServerClients
+{
+    public required IAccessClient Access { get; init; }
+
+    public required ICatalogClient Catalog { get; init; }
+
+    public required IAdminClient Admin { get; init; }
+
+    public static ServerClients Create(IServerTransport transport) => new()
+    {
+        Access = new AccessClient(transport),
+        Catalog = new CatalogClient(transport),
+        Admin = new AdminClient(transport),
+    };
+}

@@ -5,9 +5,10 @@ Logiciel Windows natif, sans navigateur ; toute la communication passe par le r�
 interne du site, jamais par Internet.
 
 **État : lot 1 en cours (accès).** Le serveur, la base et le logiciel du poste démarrent
-et dialoguent ; l'identification à deux niveaux et les permissions sont en place ; un
-écran d'essai mesure la rapidité sur un catalogue fictif. Aucune vente réelle n'est
-encore enregistrée. Voir `docs/JOURNAL.md` pour l'avancement.
+et dialoguent ; l'identification à deux niveaux et les permissions sont en place ; le
+logiciel du poste a sa structure à modules et l'écran d'administration des employés et
+des droits ; le module Diagnostic mesure la rapidité sur un catalogue fictif. Aucune
+vente réelle n'est encore enregistrée. Voir `docs/JOURNAL.md` pour l'avancement.
 
 ## Organisation
 
@@ -54,8 +55,8 @@ Sur un poste d'essai :
    contenant la chaîne de connexion.
 3. Lancer une fois `Pharmaly.Server.exe --donnees-fictives 20000`, puis `Pharmaly.Server.exe`.
 4. Sur le poste, régler l'adresse du serveur dans `poste.json`, puis lancer
-   `PharmalyGestion.exe`. La touche **F9** lance l'essai de rapidité et affiche la mémoire
-   utilisée et les temps de réponse.
+   `PharmalyGestion.exe`. Dans le module **Diagnostic** (F6), la touche **F9** lance
+   l'essai de rapidité et affiche la mémoire utilisée et les temps de réponse.
 
 Options du poste : `--serveur http://adresse:5080`, `--essai-auto`, `--rapport fichier.json`.
 
@@ -72,7 +73,14 @@ Pharmaly.Server.exe --creer-administrateur 1 "Nom du responsable"
 
 - Le **compte de caisse** (identifiant et mot de passe) connecte un poste, une seule fois.
 - Chaque **employé** s'identifie ensuite avec son matricule et son code personnel.
-- La touche **F12** verrouille le poste : l'employé suivant doit s'identifier.
+- La touche **F12** verrouille le poste : l'employé suivant doit s'identifier. Le poste
+  se verrouille aussi de lui-même après cinq minutes sans frappe ni souris.
+- Les modules s'ouvrent avec **F1 à F6** (ou Ctrl+1 à Ctrl+6) : Vente, Bons fournisseurs,
+  Caisse, Produits, Administration, Diagnostic. Seuls ceux que les droits de l'employé
+  concernent sont affichés.
+- **Administration** (F5, droit « Administrer les utilisateurs et permissions ») : créer
+  un employé, cocher ses droits (éventuellement limités à un site), le désactiver,
+  remplacer son code personnel.
 - Cinq codes faux de suite bloquent le compte pendant cinq minutes.
 
 ## Sauvegarde et restauration
@@ -97,5 +105,5 @@ Pharmaly.Server.exe --restaurer D:\Sauvegardes\Pharmaly\pharmaly-20261116-230000
 
 - Les échanges poste-serveur ne sont pas encore chiffrés : à n'utiliser que sur un réseau
   d'essai, avec des données fictives.
-- La gestion des employés et de leurs droits existe côté serveur, mais l'écran
-  d'administration n'est pas encore dans le logiciel du poste.
+- Les modules Vente, Bons fournisseurs, Caisse et Produits affichent seulement « Module
+  en cours de développement ».

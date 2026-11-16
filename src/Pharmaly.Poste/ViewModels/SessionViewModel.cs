@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Pharmaly.Contracts;
-using Pharmaly.Poste.Services;
+using Pharmaly.Poste.Services.Server;
 
 namespace Pharmaly.Poste.ViewModels;
 
@@ -21,9 +21,9 @@ public enum SessionStage
 public sealed partial class SessionViewModel : ObservableObject
 {
     private const string ServerUnreachable = "Serveur injoignable — vérifiez le réseau du magasin.";
-    private readonly IServerClient server;
+    private readonly IAccessClient server;
 
-    public SessionViewModel(IServerClient server)
+    public SessionViewModel(IAccessClient server)
     {
         this.server = server;
         stage = server.HasPosteSession ? SessionStage.EmployeeSignIn : SessionStage.PosteSignIn;
@@ -63,7 +63,16 @@ public sealed partial class SessionViewModel : ObservableObject
 
     public bool IsWork => Stage == SessionStage.Work;
 
+    /// <summary>
+    /// Droits effectifs de l'employé identifié. Ils servent seulement à masquer ce qui serait
+    /// refusé : le serveur contrôle chaque demande.
+    /// </summary>
     public IReadOnlyList<string> Permissions { get; private set; } = [];
+
+    /// <summary>Identifiant de l'employé identifié, ou <see cref="Guid.Empty"/> quand le poste est verrouillé.</summary>
+    public Guid EmployeeId { get; private set; }
+
+    public bool HasPermission(string code) => Permissions.Contains(code);
 
     [RelayCommand]
     public async Task SignInPosteAsync()
@@ -96,6 +105,7 @@ public sealed partial class SessionViewModel : ObservableObject
         {
             var signedIn = await server.SignInEmployeeAsync(number, EmployeeSecret, CancellationToken.None);
             EmployeeName = signedIn.EmployeeName;
+            EmployeeId = signedIn.EmployeeId;
             Permissions = signedIn.Permissions;
             EmployeeNumber = string.Empty;
             EmployeeSecret = string.Empty;
@@ -123,7 +133,9 @@ public sealed partial class SessionViewModel : ObservableObject
     public void RequireEmployee()
     {
         EmployeeName = string.Empty;
+        EmployeeId = Guid.Empty;
         Permissions = [];
+        EmployeeNumber = string.Empty;
         EmployeeSecret = string.Empty;
         ErrorMessage = string.Empty;
         Stage = SessionStage.EmployeeSignIn;

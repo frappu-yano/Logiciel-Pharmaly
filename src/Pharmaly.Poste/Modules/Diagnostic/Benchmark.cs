@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Pharmaly.Poste.Services;
 
-namespace Pharmaly.Poste.ViewModels;
+namespace Pharmaly.Poste.Modules.Diagnostic;
 
 public sealed record BenchmarkReport(
     bool ServerReachable,
@@ -34,7 +34,7 @@ public static class Benchmark
 
     private const int Rounds = 5;
 
-    public static async Task<BenchmarkReport> RunAsync(MainViewModel viewModel)
+    public static async Task<BenchmarkReport> RunAsync(DiagnosticViewModel viewModel)
     {
         await viewModel.CheckServerAsync();
         if (!viewModel.IsConnected)

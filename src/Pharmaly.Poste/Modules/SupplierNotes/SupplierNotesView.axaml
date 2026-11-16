@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Pharmaly.Poste.Modules.SupplierNotes"
+             x:Class="Pharmaly.Poste.Modules.SupplierNotes.SupplierNotesView"
+             x:DataType="local:SupplierNotesViewModel"
+             Focusable="True">
+  <!-- État vide : à remplacer par l'écran du module. -->
+  <Border Classes="card empty">
+    <StackPanel Spacing="8">
+      <TextBlock Classes="emptyTitle" Text="Bons fournisseurs" />
+      <TextBlock x:Name="EmptyStateLabel" Classes="emptyState" Text="Module en cours de développement" />
+      <TextBlock Classes="label" TextAlignment="Center" TextWrapping="Wrap"
+                 Text="Aucune opération n'est possible ici pour l'instant." />
+    </StackPanel>
+  </Border>
+</UserControl>

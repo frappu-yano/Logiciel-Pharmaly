@@ -18,6 +18,17 @@
     <SolidColorBrush x:Key="MutedBrush" Color="#5C5A55" />
     <SolidColorBrush x:Key="LineBrush" Color="#E4DDD0" />
     <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
+    <!-- Couleur d'accent du thème (cases cochées, champ actif) : le turquoise de la charte, coche noire. -->
+    <Color x:Key="SystemAccentColor">#2ECAC8</Color>
+    <Color x:Key="SystemAccentColorDark1">#27B3B1</Color>
+    <Color x:Key="SystemAccentColorDark2">#1F9C9A</Color>
+    <Color x:Key="SystemAccentColorDark3">#178583</Color>
+    <Color x:Key="SystemAccentColorLight1">#55D5D3</Color>
+    <Color x:Key="SystemAccentColorLight2">#82E0DE</Color>
+    <Color x:Key="SystemAccentColorLight3">#ABEAE9</Color>
+    <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundChecked" Color="{StaticResource InkColor}" />
+    <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPointerOver" Color="{StaticResource InkColor}" />
+    <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPressed" Color="{StaticResource InkColor}" />
   </Application.Resources>
   <Application.Styles>
     <FluentTheme />
@@ -70,6 +81,92 @@
       <Setter Property="MinHeight" Value="42" />
       <Setter Property="MinWidth" Value="46" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
+    <!-- Barre de navigation entre modules -->
+    <Style Selector="Button.nav">
+      <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Padding" Value="12,0,16,0" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinHeight" Value="44" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.nav.current">
+      <Setter Property="Background" Value="{StaticResource TurquoiseBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource TurquoiseBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.nav.current:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource TurquoiseBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource TurquoiseBrush}" />
+    </Style>
+    <Style Selector="Border.key">
+      <Setter Property="Background" Value="{StaticResource BeigeBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- État vide d'un module ou d'une liste -->
+    <Style Selector="Border.empty">
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Padding" Value="40,32" />
+      <Setter Property="MaxWidth" Value="560" />
+    </Style>
+    <Style Selector="TextBlock.emptyTitle">
+      <Setter Property="FontSize" Value="24" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="TextAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.emptyState">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- Administration -->
+    <Style Selector="TextBlock.groupTitle">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="Margin" Value="0,0,0,2" />
+    </Style>
+    <Style Selector="Border.state">
+      <Setter Property="Background" Value="{StaticResource PeachSoftBrush}" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="9,2" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.state.active">
+      <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource TurquoiseBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.state.self">
+      <Setter Property="Background" Value="{StaticResource InkBrush}" />
+    </Style>
+    <Style Selector="Border.message">
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="14,10" />
+    </Style>
+    <Style Selector="Border.message.error">
+      <Setter Property="Background" Value="{StaticResource PeachSoftBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource PeachBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.message.info">
+      <Setter Property="Background" Value="{StaticResource TurquoiseSoftBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource TurquoiseBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
   </Application.Styles>
 </Application>

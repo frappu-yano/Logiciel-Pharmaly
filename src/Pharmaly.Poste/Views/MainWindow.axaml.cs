@@ -2,83 +2,114 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Pharmaly.Poste.Modules;
+using Pharmaly.Poste.Modules.Diagnostic;
 using Pharmaly.Poste.Services;
 using Pharmaly.Poste.ViewModels;
 
 namespace Pharmaly.Poste.Views;
 
+/// <summary>
+/// Fenêtre principale : identification, bandeau, barre de navigation et vue du module affiché.
+/// Elle ne contient aucun écran métier : chaque module apporte sa vue (voir <see cref="ModuleCatalog"/>).
+/// </summary>
 public sealed partial class MainWindow : Window
 {
-    private static readonly TimeSpan MemoryRefreshInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan ServerCheckInterval = TimeSpan.FromSeconds(15);
 
-    private readonly MainViewModel viewModel;
+    private readonly ShellViewModel shell;
     private readonly SessionViewModel session;
     private readonly LaunchOptions options;
-    private readonly DispatcherTimer memoryTimer;
     private readonly DispatcherTimer serverTimer;
 
-    public MainWindow(MainViewModel viewModel, SessionViewModel session, LaunchOptions options)
+    public MainWindow(ShellViewModel shell, LaunchOptions options)
     {
-        this.viewModel = viewModel;
-        this.session = session;
+        this.shell = shell;
         this.options = options;
-        DataContext = viewModel;
+        session = shell.Session;
+        DataContext = shell;
         InitializeComponent();
 
-        PosteSignInPanel.DataContext = session;
-        EmployeeSignInPanel.DataContext = session;
-        LockButton.Click += async (_, _) => await session.LockAsync();
         session.PropertyChanged += (_, change) =>
         {
             if (change.PropertyName == nameof(SessionViewModel.Stage))
             {
-                ApplyStage();
+                FocusForStage();
             }
         };
-        viewModel.IdentificationRequired += (_, _) => session.RequireEmployee();
+        shell.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(ShellViewModel.CurrentModule))
+            {
+                ShowCurrentModule();
+            }
+        };
 
-        memoryTimer = new DispatcherTimer(MemoryRefreshInterval, DispatcherPriority.Background, (_, _) => viewModel.RefreshMemory());
-        serverTimer = new DispatcherTimer(ServerCheckInterval, DispatcherPriority.Background, async (_, _) => await viewModel.CheckServerAsync());
+        serverTimer = new DispatcherTimer(ServerCheckInterval, DispatcherPriority.Background, async (_, _) => await shell.Status.CheckAsync());
+        serverTimer.Stop();
 
         // Les touches sont interceptées avant les contrôles : le scanner et le clavier
         // pilotent tout l'écran, quel que soit l'élément qui a le focus.
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
+
+        // Toute frappe et tout geste de souris repoussent le verrouillage par inactivité.
+        AddHandler(KeyDownEvent, (_, _) => shell.NotifyActivity(), RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerMovedEvent, (_, _) => shell.NotifyActivity(), RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerPressedEvent, (_, _) => shell.NotifyActivity(), RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerWheelChangedEvent, (_, _) => shell.NotifyActivity(), RoutingStrategies.Tunnel, handledEventsToo: true);
     }
 
-    /// <summary>Affiche l'écran qui correspond à l'étape d'identification et y place le curseur.</summary>
-    private void ApplyStage()
+    private IModuleView? CurrentView => ModuleHost.Content as IModuleView;
+
+    /// <summary>
+    /// Place dans la fenêtre la vue du module affiché. Au verrouillage il n'y a plus de module :
+    /// la vue est retirée, rien de l'employé précédent ne reste à l'écran.
+    /// </summary>
+    private void ShowCurrentModule()
     {
-        WorkArea.IsVisible = session.IsWork;
-        EmployeeLabel.Text = session.EmployeeName;
-        if (!session.IsWork)
+        if (shell.CurrentModule is not { } module || shell.CurrentDefinition is not { } definition)
         {
-            // Rien de l'employé précédent ne reste à l'écran.
-            viewModel.Query = string.Empty;
-            viewModel.ClearLines();
+            ModuleHost.Content = null;
+            return;
         }
 
+        var view = definition.CreateView();
+        view.DataContext = module;
+        ModuleHost.Content = view;
         Dispatcher.UIThread.Post(() =>
         {
-            var target = session.Stage switch
+            if (ReferenceEquals(ModuleHost.Content, view) && session.IsWork)
             {
-                SessionStage.PosteSignIn => RegisterLoginBox,
-                SessionStage.EmployeeSignIn => EmployeeNumberBox,
-                _ => SearchBox,
-            };
-            target.Focus();
+                ((IModuleView)view).FocusDefault();
+            }
         });
     }
+
+    /// <summary>Place le curseur sur l'écran d'identification affiché.</summary>
+    private void FocusForStage() => Dispatcher.UIThread.Post(() =>
+    {
+        switch (session.Stage)
+        {
+            case SessionStage.PosteSignIn:
+                RegisterLoginBox.Focus();
+                break;
+            case SessionStage.EmployeeSignIn:
+                EmployeeNumberBox.Focus();
+                break;
+            case SessionStage.Work when shell.CurrentModule is null:
+                // Aucun module visible : le focus revient à la fenêtre pour que F12 reste actif.
+                Focus();
+                break;
+        }
+    });
 
     protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        viewModel.StartupSeconds = Measurements.ReadTimeSinceProcessStart().TotalSeconds;
-        ApplyStage();
-        viewModel.RefreshMemory();
-        memoryTimer.Start();
+        shell.StartupSeconds = Measurements.ReadTimeSinceProcessStart().TotalSeconds;
+        FocusForStage();
         serverTimer.Start();
-        await viewModel.CheckServerAsync();
+        await shell.Status.CheckAsync();
 
         if (options.AutoBenchmark)
         {
@@ -88,7 +119,6 @@ public sealed partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        memoryTimer.Stop();
         serverTimer.Stop();
         base.OnClosed(e);
     }
@@ -111,7 +141,9 @@ public sealed partial class MainWindow : Window
             await session.SignInEmployeeAsync();
         }
 
-        var report = await viewModel.ExecuteBenchmarkAsync();
+        // L'essai se déroule dans le module Diagnostic, quels que soient les droits du compte d'essai.
+        var diagnostic = (DiagnosticViewModel)(await shell.OpenAsync(ModuleKeys.Diagnostic, evenIfHidden: true))!;
+        var report = await diagnostic.ExecuteBenchmarkAsync();
         if (options.ReportPath is not null)
         {
             await File.WriteAllTextAsync(options.ReportPath, report.ToJson());
@@ -161,87 +193,48 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        switch (e.Key)
+        if (e.Key == Key.F12)
         {
-            case Key.F12:
-                e.Handled = true;
-                await session.LockAsync();
-                break;
+            e.Handled = true;
+            await shell.LockAsync();
+            return;
+        }
 
-            case Key.Enter when SearchBox.IsFocused:
-                e.Handled = true;
-                if (viewModel.Results.Count > 1 && viewModel.SelectedResult is not null && !LooksLikeBarcode(viewModel.Query))
-                {
-                    viewModel.AddSelectedResult();
-                }
-                else
-                {
-                    await viewModel.SubmitAsync();
-                }
+        if (ModulePositionOf(e) is { } position)
+        {
+            e.Handled = true;
+            await shell.OpenByShortcutAsync(position);
+            return;
+        }
 
-                SearchBox.Focus();
-                break;
-
-            case Key.Enter when ResultsList.IsKeyboardFocusWithin:
-                e.Handled = true;
-                viewModel.AddSelectedResult();
-                SearchBox.Focus();
-                break;
-
-            case Key.Down when SearchBox.IsFocused && viewModel.Results.Count > 0:
-                e.Handled = true;
-                MoveResultSelection(+1);
-                break;
-
-            case Key.Up when SearchBox.IsFocused && viewModel.Results.Count > 0:
-                e.Handled = true;
-                MoveResultSelection(-1);
-                break;
-
-            case Key.Add or Key.OemPlus when string.IsNullOrEmpty(viewModel.Query):
-                e.Handled = true;
-                viewModel.IncreaseSelectedLine();
-                break;
-
-            case Key.Subtract or Key.OemMinus when string.IsNullOrEmpty(viewModel.Query):
-                e.Handled = true;
-                viewModel.DecreaseSelectedLine();
-                break;
-
-            case Key.Delete when string.IsNullOrEmpty(viewModel.Query):
-                e.Handled = true;
-                viewModel.RemoveSelectedLine();
-                break;
-
-            case Key.Escape:
-                e.Handled = true;
-                if (string.IsNullOrEmpty(viewModel.Query))
-                {
-                    viewModel.ClearLines();
-                }
-                else
-                {
-                    viewModel.Query = string.Empty;
-                }
-
-                SearchBox.Focus();
-                break;
-
-            case Key.F9 when !viewModel.IsBenchmarkRunning:
-                e.Handled = true;
-                await viewModel.ExecuteBenchmarkAsync();
-                break;
+        if (CurrentView is { } view)
+        {
+            await view.HandleKeyAsync(e);
         }
     }
 
-    private void MoveResultSelection(int delta)
+    /// <summary>F1…F9 sans modificateur, ou Ctrl+1…Ctrl+9 : position du module demandé dans le catalogue.</summary>
+    private static int? ModulePositionOf(KeyEventArgs e)
     {
-        var current = viewModel.SelectedResult is null ? -1 : viewModel.Results.IndexOf(viewModel.SelectedResult);
-        var next = Math.Clamp(current + delta, 0, viewModel.Results.Count - 1);
-        viewModel.SelectedResult = viewModel.Results[next];
-        ResultsList.ScrollIntoView(next);
-    }
+        var count = ModuleCatalog.All.Count;
+        if (e.KeyModifiers == KeyModifiers.None && e.Key >= Key.F1 && e.Key < Key.F1 + count)
+        {
+            return e.Key - Key.F1;
+        }
 
-    private static bool LooksLikeBarcode(string text) =>
-        text.Trim() is { Length: >= 8 } trimmed && trimmed.All(char.IsAsciiDigit);
+        if (e.KeyModifiers == KeyModifiers.Control)
+        {
+            if (e.Key >= Key.D1 && e.Key < Key.D1 + count)
+            {
+                return e.Key - Key.D1;
+            }
+
+            if (e.Key >= Key.NumPad1 && e.Key < Key.NumPad1 + count)
+            {
+                return e.Key - Key.NumPad1;
+            }
+        }
+
+        return null;
+    }
 }

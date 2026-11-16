@@ -1,14 +1,15 @@
+using Pharmaly.Poste.Modules.Diagnostic;
 using Pharmaly.Poste.ViewModels;
 
 namespace Pharmaly.Tests.Poste;
 
-public sealed class MainViewModelTests
+public sealed class DiagnosticViewModelTests
 {
     private readonly FakeServer server = new() { HasPosteSession = true, EmployeeIdentified = true };
 
-    private MainViewModel CreateViewModel() => new(server, TimeSpan.Zero);
+    private DiagnosticViewModel CreateViewModel() => new(server, new ServerStatusViewModel(server), TimeSpan.Zero);
 
-    private static async Task ScanAsync(MainViewModel viewModel, string text)
+    private static async Task ScanAsync(DiagnosticViewModel viewModel, string text)
     {
         viewModel.Query = text;
         await viewModel.SubmitAsync();
