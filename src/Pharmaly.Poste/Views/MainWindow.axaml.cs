@@ -30,11 +30,17 @@ public sealed partial class MainWindow : Window
         DataContext = shell;
         InitializeComponent();
 
-        session.PropertyChanged += (_, change) =>
+        session.PropertyChanged += async (_, change) =>
         {
-            if (change.PropertyName == nameof(SessionViewModel.Stage))
+            if (change.PropertyName is nameof(SessionViewModel.Stage) or nameof(SessionViewModel.ServerApprovalNeeded))
             {
                 FocusForStage();
+            }
+
+            if (change.PropertyName == nameof(SessionViewModel.ServerApprovalNeeded) && !session.ServerApprovalNeeded)
+            {
+                // Le serveur vient d'être approuvé : le bandeau ne doit pas rester sur l'ancien refus.
+                await shell.Status.CheckAsync();
             }
         };
         shell.PropertyChanged += (_, change) =>
@@ -90,6 +96,10 @@ public sealed partial class MainWindow : Window
     {
         switch (session.Stage)
         {
+            case SessionStage.PosteSignIn when session.ServerApprovalNeeded:
+                // Approbation du serveur : aucun champ à saisir, les touches vont à la fenêtre.
+                Focus();
+                break;
             case SessionStage.PosteSignIn:
                 RegisterLoginBox.Focus();
                 break;
@@ -110,6 +120,7 @@ public sealed partial class MainWindow : Window
         FocusForStage();
         serverTimer.Start();
         await shell.Status.CheckAsync();
+        await session.ReadServerFingerprintAsync();
 
         if (options.AutoBenchmark)
         {
@@ -154,6 +165,24 @@ public sealed partial class MainWindow : Window
 
     private async Task HandleSignInKeyAsync(KeyEventArgs e)
     {
+        if (session.ServerApprovalNeeded)
+        {
+            // Entrée ne fait que relire l'empreinte : approuver demande une touche à part (F8),
+            // pour qu'un appui machinal sur Entrée n'approuve jamais un serveur.
+            if (e.Key == Key.F8)
+            {
+                e.Handled = true;
+                session.ApproveServer();
+            }
+            else if (e.Key == Key.Enter)
+            {
+                e.Handled = true;
+                await session.ReadServerFingerprintAsync();
+            }
+
+            return;
+        }
+
         if (e.Key != Key.Enter || session.IsBusy)
         {
             return;

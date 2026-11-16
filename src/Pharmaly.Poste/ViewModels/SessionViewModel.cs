@@ -7,7 +7,10 @@ namespace Pharmaly.Poste.ViewModels;
 
 public enum SessionStage
 {
-    /// <summary>Niveau 1 : le poste doit être connecté avec un compte de caisse.</summary>
+    /// <summary>
+    /// Niveau 1 : le poste doit être connecté avec un compte de caisse. À la toute première
+    /// connexion, l'installateur approuve d'abord le serveur en comparant son empreinte.
+    /// </summary>
     PosteSignIn,
 
     /// <summary>Niveau 2 : un employé doit s'identifier.</summary>
@@ -22,12 +25,37 @@ public sealed partial class SessionViewModel : ObservableObject
 {
     private const string ServerUnreachable = "Serveur injoignable — vérifiez le réseau du magasin.";
     private readonly IAccessClient server;
+    private readonly IServerTrust? trust;
 
-    public SessionViewModel(IAccessClient server)
+    /// <summary>Empreinte affichée à l'installateur : c'est elle, et aucune autre, qu'il approuve.</summary>
+    private string? fingerprintOnScreen;
+
+    public SessionViewModel(IAccessClient server, IServerTrust? trust = null)
     {
         this.server = server;
-        stage = server.HasPosteSession ? SessionStage.EmployeeSignIn : SessionStage.PosteSignIn;
+        this.trust = trust;
+        serverApprovalNeeded = trust?.ApprovalNeeded ?? false;
+        // Tant que le serveur n'est pas approuvé, rien ne peut lui être envoyé : le poste
+        // reste au niveau 1 même s'il a gardé une connexion d'un lancement précédent.
+        stage = server.HasPosteSession && !serverApprovalNeeded ? SessionStage.EmployeeSignIn : SessionStage.PosteSignIn;
     }
+
+    /// <summary>
+    /// Première connexion à un serveur : l'écran du niveau 1 montre l'empreinte reçue et
+    /// attend que l'installateur l'approuve. Le compte de caisse n'est demandé qu'ensuite.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRegisterAccountAsked))]
+    private bool serverApprovalNeeded;
+
+    /// <summary>Empreinte du serveur joint, en groupes de quatre caractères ; vide tant qu'il n'a pas été joint.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasServerFingerprint))]
+    private string serverFingerprint = string.Empty;
+
+    public bool HasServerFingerprint => ServerFingerprint.Length > 0;
+
+    public bool IsRegisterAccountAsked => !ServerApprovalNeeded;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPosteSignIn), nameof(IsEmployeeSignIn), nameof(IsWork))]
@@ -74,9 +102,76 @@ public sealed partial class SessionViewModel : ObservableObject
 
     public bool HasPermission(string code) => Permissions.Contains(code);
 
+    /// <summary>
+    /// Joint le serveur pour lire son empreinte. Rien n'est envoyé : la connexion est coupée
+    /// pendant la négociation, dès que le certificat est connu.
+    /// </summary>
+    [RelayCommand]
+    public async Task ReadServerFingerprintAsync()
+    {
+        if (trust is null || !ServerApprovalNeeded || IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            await server.GetHealthAsync(CancellationToken.None);
+        }
+        catch (ServerRefusedException refused) when (refused.Code == ServerTrust.ApprovalNeededCode)
+        {
+            // Attendu : le serveur a montré son certificat et le poste a coupé.
+        }
+        catch (ServerRefusedException refused)
+        {
+            ErrorMessage = refused.Message;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            ErrorMessage = ServerUnreachable;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
+        fingerprintOnScreen = ErrorMessage.Length == 0 ? trust.PresentedFingerprint : null;
+        ServerFingerprint = fingerprintOnScreen is null ? string.Empty : CertificateFingerprint.Format(fingerprintOnScreen);
+    }
+
+    /// <summary>
+    /// L'installateur a comparé l'empreinte affichée à celle du serveur (<c>--empreinte</c>).
+    /// Elle est enregistrée : tout serveur qui en présente une autre sera refusé.
+    /// </summary>
+    [RelayCommand]
+    public void ApproveServer()
+    {
+        if (trust is null || !ServerApprovalNeeded || fingerprintOnScreen is null || IsBusy)
+        {
+            return;
+        }
+
+        trust.Approve(fingerprintOnScreen);
+        fingerprintOnScreen = null;
+        ServerFingerprint = string.Empty;
+        ErrorMessage = string.Empty;
+        ServerApprovalNeeded = false;
+        if (server.HasPosteSession)
+        {
+            Stage = SessionStage.EmployeeSignIn;
+        }
+    }
+
     [RelayCommand]
     public async Task SignInPosteAsync()
     {
+        if (ServerApprovalNeeded)
+        {
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(RegisterLogin) || RegisterPassword.Length == 0)
         {
             ErrorMessage = "Saisissez le compte de caisse et son mot de passe.";

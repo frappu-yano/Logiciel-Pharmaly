@@ -8,6 +8,7 @@ using Pharmaly.Server.Maintenance;
 using Pharmaly.Server.Operations;
 using Pharmaly.Server.Stock;
 using Pharmaly.Server.SupplierNotes;
+using Pharmaly.Server.Transport;
 
 const string DemoDataArgument = "--donnees-fictives";
 const string MigrateOnlyArgument = "--migrer";
@@ -17,6 +18,16 @@ const string CreateAdministratorArgument = "--creer-administrateur";
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseWindowsService(options => options.ServiceName = "Pharmaly Gestion - Serveur");
+
+// Échanges chiffrés avec les postes (voir Transport/EncryptedTransport.cs).
+//   --empreinte    affiche l'empreinte du certificat, à comparer sur chaque poste
+if (args.Contains(EncryptedTransport.FingerprintArgument))
+{
+    Console.WriteLine(EncryptedTransport.DescribeFingerprint(builder.Configuration));
+    return;
+}
+
+builder.UseEncryptedTransport();
 
 // Réglages propres au site (mot de passe de la base) : fichier appsettings.Local.json,
 // jamais versionné. Une valeur fournie par l'environnement ou par les tests l'emporte.

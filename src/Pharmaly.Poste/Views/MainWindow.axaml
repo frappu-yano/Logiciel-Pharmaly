@@ -74,24 +74,53 @@
   <!-- Niveau 1 : compte de caisse du poste -->
   <Border x:Name="PosteSignInPanel" DataContext="{Binding Session}" x:DataType="vm:SessionViewModel"
           IsVisible="{Binding IsPosteSignIn}" Background="{StaticResource BeigeBrush}">
-    <Border Classes="card" Width="420" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <Border Classes="card" Width="460" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
       <StackPanel Spacing="14">
         <TextBlock Text="Pharmaly Gestion" FontSize="24" FontWeight="Bold" />
-        <TextBlock Classes="label" TextWrapping="Wrap"
-                   Text="Connectez ce poste avec son compte de caisse. Cette étape n'est demandée qu'une fois par poste." />
-        <StackPanel Spacing="4">
-          <TextBlock Classes="label" Text="Compte de caisse" />
-          <TextBox x:Name="RegisterLoginBox" Text="{Binding RegisterLogin}" FontSize="17" Padding="12,10" />
+        <!-- Première connexion à un serveur : l'installateur compare l'empreinte avant tout envoi -->
+        <StackPanel x:Name="ServerApprovalPanel" Spacing="14" IsVisible="{Binding ServerApprovalNeeded}">
+          <TextBlock Text="Première connexion à ce serveur" FontSize="17" FontWeight="SemiBold" />
+          <TextBlock Classes="label" TextWrapping="Wrap"
+                     Text="Sur le serveur, lancez « Pharmaly.Server.exe --empreinte » et comparez, caractère par caractère, avec l'empreinte ci-dessous. Rien n'est envoyé au serveur avant votre approbation." />
+          <Border Background="{StaticResource BeigeBrush}" CornerRadius="6" Padding="12,10"
+                  IsVisible="{Binding HasServerFingerprint}">
+            <TextBlock x:Name="ServerFingerprintLabel" Text="{Binding ServerFingerprint}" FontSize="14"
+                       FontFamily="Consolas,Courier New,DejaVu Sans Mono,monospace" FontWeight="Bold"
+                       HorizontalAlignment="Center" LineHeight="24" />
+          </Border>
+          <TextBlock Classes="label" TextWrapping="Wrap" IsVisible="{Binding !HasServerFingerprint}"
+                     Text="Le serveur n'a pas encore été joint. Vérifiez qu'il est démarré et que l'adresse réglée sur ce poste est la bonne, puis appuyez sur Entrée." />
+          <TextBlock Classes="label" TextWrapping="Wrap" IsVisible="{Binding HasServerFingerprint}"
+                     Text="Si une seule différence apparaît, n'approuvez pas : ce n'est pas votre serveur." />
+          <TextBlock x:Name="ServerApprovalErrorLabel" Text="{Binding ErrorMessage}" Foreground="#9A2B12" TextWrapping="Wrap"
+                     IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <Button x:Name="ApproveServerButton" Classes="primary" Content="Les empreintes sont identiques : approuver (F8)"
+                  Command="{Binding ApproveServerCommand}" IsVisible="{Binding HasServerFingerprint}"
+                  IsEnabled="{Binding !IsBusy}" Focusable="False"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+          <Button Classes="quiet" Content="Relire l'empreinte du serveur (Entrée)"
+                  Command="{Binding ReadServerFingerprintCommand}" IsEnabled="{Binding !IsBusy}" Focusable="False"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
         </StackPanel>
-        <StackPanel Spacing="4">
-          <TextBlock Classes="label" Text="Mot de passe" />
-          <TextBox x:Name="RegisterPasswordBox" Text="{Binding RegisterPassword}" PasswordChar="●" FontSize="17"
-                   Padding="12,10" />
+
+        <!-- Compte de caisse -->
+        <StackPanel x:Name="RegisterAccountPanel" Spacing="14" IsVisible="{Binding IsRegisterAccountAsked}">
+          <TextBlock Classes="label" TextWrapping="Wrap"
+                     Text="Connectez ce poste avec son compte de caisse. Cette étape n'est demandée qu'une fois par poste." />
+          <StackPanel Spacing="4">
+            <TextBlock Classes="label" Text="Compte de caisse" />
+            <TextBox x:Name="RegisterLoginBox" Text="{Binding RegisterLogin}" FontSize="17" Padding="12,10" />
+          </StackPanel>
+          <StackPanel Spacing="4">
+            <TextBlock Classes="label" Text="Mot de passe" />
+            <TextBox x:Name="RegisterPasswordBox" Text="{Binding RegisterPassword}" PasswordChar="●" FontSize="17"
+                     Padding="12,10" />
+          </StackPanel>
+          <TextBlock x:Name="PosteErrorLabel" Text="{Binding ErrorMessage}" Foreground="#9A2B12" TextWrapping="Wrap"
+                     IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <Button Classes="primary" Content="Connecter le poste (Entrée)" Command="{Binding SignInPosteCommand}"
+                  IsEnabled="{Binding !IsBusy}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
         </StackPanel>
-        <TextBlock x:Name="PosteErrorLabel" Text="{Binding ErrorMessage}" Foreground="#9A2B12" TextWrapping="Wrap"
-                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-        <Button Classes="primary" Content="Connecter le poste (Entrée)" Command="{Binding SignInPosteCommand}"
-                IsEnabled="{Binding !IsBusy}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
       </StackPanel>
     </Border>
   </Border>

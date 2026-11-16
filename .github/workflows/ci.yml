@@ -83,12 +83,27 @@ jobs:
           $env:PHARMALY_ESSAI_MOT_DE_PASSE = $account
           $env:PHARMALY_ESSAI_MATRICULE = "1"
           $env:PHARMALY_ESSAI_CODE = $code
+          # Empreinte du certificat du serveur, lue comme le ferait l'installateur : l'essai
+          # automatique n'accepte que ce serveur-là.
+          $fingerprint = (& .\Pharmaly.Server.exe --empreinte | Select-String "^EMPREINTE=").ToString().Substring(10)
+          if ($fingerprint -notmatch "^[0-9A-F]{64}$") { throw "Empreinte du certificat illisible" }
+          $env:PHARMALY_ESSAI_EMPREINTE = $fingerprint
           $server = Start-Process -FilePath .\Pharmaly.Server.exe -PassThru -RedirectStandardOutput serveur.log -RedirectStandardError serveur-erreurs.log
           Pop-Location
           Start-Sleep -Seconds 5
-          Invoke-RestMethod http://127.0.0.1:5080/sante | ConvertTo-Json
-          try { Invoke-RestMethod "http://127.0.0.1:5080/produits/recherche?q=creme"; throw "Le serveur a répondu sans identification" }
+          # Le certificat est auto-signé : ces appels de contrôle ne le vérifient pas ; le poste,
+          # lui, exige l'empreinte lue ci-dessus.
+          Invoke-RestMethod https://127.0.0.1:5443/sante -SkipCertificateCheck | ConvertTo-Json
+          try { Invoke-RestMethod "https://127.0.0.1:5443/produits/recherche?q=creme" -SkipCertificateCheck; throw "Le serveur a répondu sans identification" }
           catch { if ($_.Exception.Response.StatusCode.value__ -ne 401) { throw } else { "Sans identification : accès refusé (401), comme attendu" } }
+
+          # Aucun échange en clair : ni sur le port chiffré, ni sur l'ancien port 5080.
+          $clearAnswered = $false
+          try { Invoke-RestMethod http://127.0.0.1:5443/sante -TimeoutSec 10 | Out-Null; $clearAnswered = $true } catch { "Appel HTTP clair sur le port 5443 : refusé, comme attendu ($($_.Exception.Message))" }
+          if ($clearAnswered) { throw "Le serveur a répondu à un appel HTTP non chiffré" }
+          $oldPort = New-Object System.Net.Sockets.TcpClient
+          try { $oldPort.Connect("127.0.0.1", 5080); $clearAnswered = $true } catch { "Port 5080 fermé, comme attendu" } finally { $oldPort.Dispose() }
+          if ($clearAnswered) { throw "Une écoute non chiffrée est ouverte sur le port 5080" }
 
           $report = Join-Path $PWD "publish\rapport-essai-windows.json"
           $poste = Start-Process -FilePath publish\poste\PharmalyGestion.exe -ArgumentList "--essai-auto", "--rapport", "`"$report`"" -PassThru
@@ -101,6 +116,25 @@ jobs:
           Get-Content $report
           $result = Get-Content $report | ConvertFrom-Json
           if (-not $result.ServerReachable) { throw "Le poste n'a pas joint le serveur" }
+
+      - name: Un serveur dont l'empreinte n'est pas celle attendue est refusé
+        shell: pwsh
+        run: |
+          # Même essai, mais avec une empreinte qui n'est pas celle du serveur : le poste doit
+          # refuser de lui parler, donc ne pas le joindre.
+          Push-Location publish/serveur
+          $server = Start-Process -FilePath .\Pharmaly.Server.exe -PassThru -RedirectStandardOutput serveur2.log -RedirectStandardError serveur2-erreurs.log
+          Pop-Location
+          Start-Sleep -Seconds 5
+          $env:PHARMALY_ESSAI_EMPREINTE = "00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF"
+          $report = Join-Path $PWD "publish\rapport-essai-refus.json"
+          $poste = Start-Process -FilePath publish\poste\PharmalyGestion.exe -ArgumentList "--essai-auto", "--rapport", "`"$report`"" -PassThru
+          if (-not $poste.WaitForExit(120000)) { $poste.Kill(); throw "Le logiciel du poste ne s'est pas terminé en 2 minutes" }
+          Stop-Process -Id $server.Id -Force
+          if (-not (Test-Path $report)) { throw "Aucun rapport produit" }
+          $result = Get-Content $report | ConvertFrom-Json
+          if ($result.ServerReachable) { throw "Le poste a accepté un serveur dont l'empreinte n'était pas celle attendue" }
+          "Empreinte différente : le poste a refusé le serveur, comme attendu"
 
       - uses: actions/upload-artifact@v4
         with:
