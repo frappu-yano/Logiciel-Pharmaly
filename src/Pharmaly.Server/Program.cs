@@ -53,6 +53,7 @@ builder.Services.AddSingleton(services =>
 builder.Services.AddSingleton<MigrationRunner>();
 builder.Services.AddSingleton<ProductQueries>();
 builder.Services.AddSingleton<DemoDataSeeder>();
+builder.Services.AddSingleton<DemoStockSeeder>();
 builder.Services.AddSingleton<AccessService>();
 builder.Services.AddSingleton<SiteSetup>();
 builder.Services.AddSingleton<BackupService>();
@@ -78,6 +79,17 @@ if (demoIndex >= 0)
     var count = demoIndex + 1 < args.Length && int.TryParse(args[demoIndex + 1], out var parsed) ? parsed : 20_000;
     await app.Services.GetRequiredService<DemoDataSeeder>().SeedAsync(count);
     app.Logger.LogInformation("{Count} produits fictifs chargés.", count);
+    return;
+}
+
+// Stock fictif pour les essais : --stock-fictif CODE_SITE QUANTITE MATRICULE
+var demoStockIndex = Array.IndexOf(args, "--stock-fictif");
+if (demoStockIndex >= 0 && demoStockIndex + 3 < args.Length)
+{
+    var loaded = await app.Services.GetRequiredService<DemoStockSeeder>().SeedAsync(
+        args[demoStockIndex + 1], decimal.Parse(args[demoStockIndex + 2], System.Globalization.CultureInfo.InvariantCulture),
+        int.Parse(args[demoStockIndex + 3]));
+    Console.WriteLine($"Stock fictif chargé pour {loaded} produits.");
     return;
 }
 

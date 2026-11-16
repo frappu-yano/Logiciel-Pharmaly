@@ -51,7 +51,7 @@ jobs:
           Set-Service -Name $service.Name -StartupType Manual
           Start-Service -Name $service.Name
           & "$env:PGBIN\psql.exe" -U postgres -c "CREATE ROLE pharmaly LOGIN PASSWORD 'pharmaly' CREATEDB"
-          & "$env:PGBIN\psql.exe" -U postgres -c "CREATE DATABASE pharmaly_essai OWNER pharmaly"
+          & "$env:PGBIN\psql.exe" -U postgres -c "CREATE DATABASE pharmaly_ci OWNER pharmaly"
           & "$env:PGBIN\psql.exe" -U postgres -c "SELECT version()"
 
       - name: Tests
@@ -69,7 +69,7 @@ jobs:
       - name: Essai de rapidité sur Windows
         shell: pwsh
         run: |
-          $settings = '{ "ConnectionStrings": { "Pharmaly": "Host=localhost;Database=pharmaly_essai;Username=pharmaly;Password=pharmaly" } }'
+          $settings = '{ "ConnectionStrings": { "Pharmaly": "Host=localhost;Database=pharmaly_ci;Username=pharmaly;Password=pharmaly" } }'
           Set-Content -Path publish/serveur/appsettings.Local.json -Value $settings -Encoding utf8
           Push-Location publish/serveur
           & .\Pharmaly.Server.exe --donnees-fictives 20000
@@ -135,6 +135,51 @@ jobs:
           if ($result.ServerReachable) { throw "Le poste a accepté un serveur dont l'empreinte n'était pas celle attendue" }
           "Empreinte différente : le poste a refusé le serveur, comme attendu"
 
+      - name: Préparer le dossier d'essai à télécharger
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force publish/essai | Out-Null
+          Copy-Item publish/serveur/Pharmaly.Server.exe, publish/serveur/appsettings.json publish/essai/
+          Copy-Item publish/poste/PharmalyGestion.exe, publish/poste/poste.json publish/essai/
+          Copy-Item essai/* publish/essai/
+          New-Item -ItemType Directory -Force publish/essai-verification | Out-Null
+          Copy-Item publish/essai/* publish/essai-verification/
+
+      # L'installation d'essai est rejouée telle qu'un utilisateur la ferait, avec Windows
+      # PowerShell 5.1 (celui de tous les PC), puis le poste se connecte avec les identifiants
+      # écrits dans ACCES-ESSAI.txt.
+      - name: L'installation d'essai fonctionne sur un Windows neuf
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File publish/essai-verification/installer-essai.ps1 -PostgresPassword root -PostgresBin "$env:PGBIN" -SansLancement
+          if ($LASTEXITCODE -ne 0) { throw "L'installation d'essai a échoué" }
+          $acces = Get-Content publish/essai-verification/ACCES-ESSAI.txt -Raw
+          $acces
+          $motDePasse = [regex]::Match($acces, 'Mot de passe : (\S+)').Groups[1].Value
+          $code = [regex]::Match($acces, 'Code         : (\S+)').Groups[1].Value
+          if (-not $motDePasse -or -not $code) { throw "Identifiants absents de ACCES-ESSAI.txt" }
+          $stock = & "$env:PGBIN\psql.exe" -U postgres -d pharmaly_essai -tAc "SELECT count(*) FROM stock_levels WHERE quantity = 50"
+          if ([int]$stock -lt 2000) { throw "Stock fictif absent ($stock produits)" }
+          "Produits avec du stock : $stock"
+
+          Push-Location publish/essai-verification
+          $empreinte = (& .\Pharmaly.Server.exe --empreinte | Select-String "^EMPREINTE=").ToString().Substring(10)
+          $server = Start-Process -FilePath .\Pharmaly.Server.exe -PassThru -RedirectStandardOutput serveur.log -RedirectStandardError serveur-erreurs.log
+          Pop-Location
+          Start-Sleep -Seconds 5
+          $env:PHARMALY_ESSAI_COMPTE = "caisse1"
+          $env:PHARMALY_ESSAI_MOT_DE_PASSE = $motDePasse
+          $env:PHARMALY_ESSAI_MATRICULE = "1"
+          $env:PHARMALY_ESSAI_CODE = $code
+          $env:PHARMALY_ESSAI_EMPREINTE = $empreinte
+          $report = Join-Path $PWD "publish\rapport-installation-essai.json"
+          $poste = Start-Process -FilePath publish\essai-verification\PharmalyGestion.exe -ArgumentList "--essai-auto", "--rapport", "`"$report`"" -PassThru
+          if (-not $poste.WaitForExit(120000)) { $poste.Kill(); throw "Le logiciel du poste ne s'est pas terminé en 2 minutes" }
+          Stop-Process -Id $server.Id -Force
+          Get-Content $report
+          $result = Get-Content $report | ConvertFrom-Json
+          if (-not $result.ServerReachable) { throw "Le poste installé par le script d'essai n'a pas joint son serveur" }
+
       - uses: actions/upload-artifact@v4
         with:
           name: pharmaly-gestion-windows
@@ -144,4 +189,10 @@ jobs:
             publish/poste/PharmalyGestion.exe
             publish/poste/poste.json
             publish/rapport-essai-windows.json
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pharmaly-essai-windows
+          path: publish/essai/
           if-no-files-found: error

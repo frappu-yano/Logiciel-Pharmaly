@@ -73,6 +73,19 @@ l'empreinte attendue du serveur dans la variable d'environnement `PHARMALY_ESSAI
 (valeur de la ligne `EMPREINTE=` de `Pharmaly.Server.exe --empreinte`) et refuse tout autre
 serveur. Cette variable n'est lue qu'avec `--essai-auto`.
 
+## Essai sur un PC Windows (données fictives)
+
+Chaque envoi sur GitHub produit, dans l'onglet **Actions**, l'archive
+`pharmaly-essai-windows` : les deux programmes, `INSTALLER-ESSAI.cmd`,
+`DEMARRER-ESSAI.cmd` et `LISEZMOI-ESSAI.txt`. Après installation de PostgreSQL, un
+double-clic sur `INSTALLER-ESSAI.cmd` crée une base d'essai, 2 000 produits fictifs avec
+du stock, un site, un compte de caisse et un administrateur, puis ouvre le logiciel. Les
+identifiants sont écrits dans `ACCES-ESSAI.txt`. Cette installation est rejouée à chaque
+envoi sur une machine Windows neuve par l'intégration continue.
+
+Commande utilisée par l'essai pour le stock : `--stock-fictif CODE_SITE QUANTITE MATRICULE`
+(refusée si la base contient déjà le moindre mouvement de stock).
+
 ## Mise en place d'un site
 
 À faire une fois, sur le serveur, par la personne qui l'installe. Chaque secret généré

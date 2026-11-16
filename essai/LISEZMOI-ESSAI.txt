@@ -1,0 +1,47 @@
+﻿PHARMALY GESTION - ESSAI SUR UN PC WINDOWS
+==========================================
+
+Cet essai utilise uniquement des donnees fictives (2 000 produits inventes).
+Il ne touche pas a BML. Faites-le de preference sur un PC qui n'est pas une caisse en service.
+
+AVANT DE COMMENCER (une seule fois)
+1. Installer PostgreSQL : https://www.postgresql.org/download/windows/
+   (version 16 ou 17, installateur officiel, options par defaut).
+   Pendant l'installation, notez bien le mot de passe demande pour le compte "postgres".
+
+INSTALLER L'ESSAI (une seule fois)
+2. Decompresser toute cette archive dans un dossier, par exemple C:\PharmalyEssai
+3. Double-cliquer sur INSTALLER-ESSAI.cmd
+   - Si Windows affiche "Windows a protege votre ordinateur" : Informations complementaires,
+     puis Executer quand meme (le logiciel n'est pas encore signe).
+   - Saisir le mot de passe "postgres" de l'etape 1.
+   - Si le pare-feu Windows demande l'autorisation pour Pharmaly.Server : Autoriser.
+4. A la fin, le logiciel s'ouvre et le fichier ACCES-ESSAI.txt s'affiche.
+
+PREMIERE CONNEXION
+5. Le logiciel affiche une empreinte : comparez-la a celle de ACCES-ESSAI.txt, puis F8.
+6. Compte de caisse : caisse1 et son mot de passe (dans ACCES-ESSAI.txt).
+7. Identification : matricule 1 et son code (dans ACCES-ESSAI.txt).
+
+A ESSAYER
+- F1 Vente : saisir le fond de caisse puis Entree deux fois pour ouvrir la caisse ;
+  scanner ou chercher des produits ; * pour encaisser en especes, F8 pour le TPE,
+  F9 pour une vente impayee.
+- F2 Bons fournisseurs : Ctrl+N nouveau bon, scanner, quantite, Entree, prix, Entree.
+- F4 Produits : recherche, fiche, stock, mouvements, prix, inventaire.
+- F5 Administration : creer des employes et cocher leurs droits.
+- F6 Diagnostic, puis F9 : mesure la memoire et la rapidite de ce PC.
+- F12 : verrouiller le poste.
+Les codes-barres fictifs commencent par 200 ; F4 permet de les retrouver par le nom.
+
+PAS ENCORE DISPONIBLE DANS CET ESSAI
+- Ecrans Caisse / Impayes, retours clients et cloture (en cours de developpement).
+- Impression des tickets.
+
+RELANCER PLUS TARD
+- Double-cliquer sur DEMARRER-ESSAI.cmd.
+
+A NOUS RENVOYER
+- Les chiffres affiches par F6 puis F9 (memoire, temps de recherche), en precisant le PC
+  (processeur, memoire) et si BML etait ouvert en meme temps.
+- Tout ce qui est lent, peu clair ou bloquant.
