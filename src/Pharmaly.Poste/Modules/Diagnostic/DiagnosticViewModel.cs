@@ -5,14 +5,18 @@ using CommunityToolkit.Mvvm.Input;
 using Pharmaly.Contracts;
 using Pharmaly.Domain;
 using Pharmaly.Poste.Services;
+using Pharmaly.Poste.Services.Server;
+using Pharmaly.Poste.ViewModels;
 
-namespace Pharmaly.Poste.ViewModels;
+namespace Pharmaly.Poste.Modules.Diagnostic;
 
 /// <summary>
-/// Écran d'essai du lot 0 : recherche, lecture de code-barres et lignes, sur des données
-/// fictives. Aucune vente n'est enregistrée ; il sert à mesurer la rapidité du poste.
+/// Module Diagnostic (écran d'essai du lot 0) : recherche, lecture de code-barres et lignes,
+/// sur des données fictives. Aucune vente n'est enregistrée ; il sert à mesurer la rapidité
+/// du poste.
 /// </summary>
-public sealed partial class MainViewModel(IServerClient server, TimeSpan searchDelay) : ObservableObject
+public sealed partial class DiagnosticViewModel(ICatalogClient server, ServerStatusViewModel status, TimeSpan searchDelay)
+    : ModuleViewModel
 {
     public static readonly TimeSpan DefaultSearchDelay = TimeSpan.FromMilliseconds(120);
     private const int MaxQuantity = 9999;
@@ -25,19 +29,13 @@ public sealed partial class MainViewModel(IServerClient server, TimeSpan searchD
     private string query = string.Empty;
 
     [ObservableProperty]
-    private string statusText = "Connexion au serveur…";
-
-    [ObservableProperty]
-    private bool isConnected;
-
-    [ObservableProperty]
     private string notice = string.Empty;
 
     [ObservableProperty]
     private ProductSummary? selectedResult;
 
     [ObservableProperty]
-    private SaleLineViewModel? selectedLine;
+    private TrialLineViewModel? selectedLine;
 
     [ObservableProperty]
     private string totalText = Money.ToDisplay(0);
@@ -62,7 +60,7 @@ public sealed partial class MainViewModel(IServerClient server, TimeSpan searchD
 
     public ObservableCollection<ProductSummary> Results { get; } = [];
 
-    public ObservableCollection<SaleLineViewModel> Lines { get; } = [];
+    public ObservableCollection<TrialLineViewModel> Lines { get; } = [];
 
     private void HookResults()
     {
@@ -82,25 +80,11 @@ public sealed partial class MainViewModel(IServerClient server, TimeSpan searchD
 
     public decimal Total => Lines.Sum(line => line.LineTotal);
 
-    public async Task CheckServerAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var health = await server.GetHealthAsync(cancellationToken);
-            IsConnected = health is { DatabaseReachable: true };
-            StatusText = health switch
-            {
-                null => "Serveur injoignable",
-                { DatabaseReachable: false } => "Serveur joint, base de données indisponible",
-                _ => $"Connecté au serveur — version {health.Version}",
-            };
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
-        {
-            IsConnected = false;
-            StatusText = "Serveur injoignable — vérifiez le réseau du magasin";
-        }
-    }
+    public bool IsConnected => status.IsConnected;
+
+    public string StatusText => status.StatusText;
+
+    public Task CheckServerAsync(CancellationToken cancellationToken = default) => status.CheckAsync(cancellationToken);
 
     partial void OnQueryChanged(string value)
     {
@@ -157,22 +141,15 @@ public sealed partial class MainViewModel(IServerClient server, TimeSpan searchD
         }
         catch (HttpRequestException)
         {
-            IsConnected = false;
-            StatusText = "Serveur injoignable — vérifiez le réseau du magasin";
+            status.MarkUnreachable();
         }
     }
-
-    /// <summary>Levé quand le serveur ne reconnaît plus l'employé : le poste doit redemander l'identification.</summary>
-    public event EventHandler? IdentificationRequired;
 
     private void HandleRefusal(ServerRefusedException refused)
     {
         Results.Clear();
         Notice = refused.Message;
-        if (refused.Code is ApiErrorCodes.EmployeeNotIdentified or ApiErrorCodes.PosteNotSignedIn)
-        {
-            IdentificationRequired?.Invoke(this, EventArgs.Empty);
-        }
+        RequireIdentificationIfLost(refused);
     }
 
     /// <summary>Touche Entrée : code-barres exact d'abord, sinon le produit sélectionné.</summary>
@@ -213,8 +190,7 @@ public sealed partial class MainViewModel(IServerClient server, TimeSpan searchD
         }
         catch (HttpRequestException)
         {
-            IsConnected = false;
-            StatusText = "Serveur injoignable — vérifiez le réseau du magasin";
+            status.MarkUnreachable();
         }
     }
 
@@ -232,7 +208,7 @@ public sealed partial class MainViewModel(IServerClient server, TimeSpan searchD
         var existing = Lines.FirstOrDefault(line => line.Product.Id == product.Id);
         if (existing is null)
         {
-            existing = new SaleLineViewModel(product);
+            existing = new TrialLineViewModel(product);
             Lines.Add(existing);
         }
         else if (existing.Quantity < MaxQuantity)
@@ -290,6 +266,8 @@ public sealed partial class MainViewModel(IServerClient server, TimeSpan searchD
         SelectedLine.Quantity = Math.Min(quantity, MaxQuantity);
         RefreshTotals();
     }
+
+    public override void Close() => searchCancellation?.Cancel();
 
     private void RefreshTotals()
     {

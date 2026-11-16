@@ -1,7 +1,9 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Pharmaly.Poste.Modules.Diagnostic;
 using Pharmaly.Poste.Services;
+using Pharmaly.Poste.Services.Server;
 using Pharmaly.Poste.ViewModels;
 using Pharmaly.Poste.Views;
 
@@ -17,9 +19,10 @@ public sealed class App : Application
         {
             var options = LaunchOptions.Parse(desktop.Args ?? []);
             var settings = PosteSettings.Load(options.ServerUrl);
-            var server = new ServerClient(settings, new PosteTokenStore());
-            var viewModel = new MainViewModel(server, MainViewModel.DefaultSearchDelay);
-            desktop.MainWindow = new MainWindow(viewModel, new SessionViewModel(server), options);
+            var clients = ServerClients.Create(new ServerTransport(settings, new PosteTokenStore()));
+            var shell = new ShellViewModel(
+                clients, new InactivityTimer(ShellViewModel.InactivityLockDelay), DiagnosticViewModel.DefaultSearchDelay);
+            desktop.MainWindow = new MainWindow(shell, options);
         }
 
         base.OnFrameworkInitializationCompleted();

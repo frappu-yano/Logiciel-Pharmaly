@@ -1,0 +1,168 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Pharmaly.Poste.Modules.Administration"
+             x:Class="Pharmaly.Poste.Modules.Administration.AdministrationView"
+             x:DataType="local:AdministrationViewModel">
+  <Grid>
+    <DockPanel Margin="20,16,20,16" IsEnabled="{Binding !IsConfirming}">
+
+      <!-- Réponse du serveur : refus (tel que le serveur le formule) ou confirmation -->
+      <Border DockPanel.Dock="Bottom" Classes="message error" Margin="0,12,0,0"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock x:Name="ErrorLabel" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+      </Border>
+      <Border DockPanel.Dock="Bottom" Classes="message info" Margin="0,12,0,0"
+              IsVisible="{Binding InfoMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock x:Name="InfoLabel" Text="{Binding InfoMessage}" TextWrapping="Wrap" FontWeight="Medium" />
+      </Border>
+
+    <Grid ColumnDefinitions="330,*" ColumnSpacing="16">
+
+      <!-- Employés -->
+      <Grid RowDefinitions="*,Auto" RowSpacing="12">
+        <Border Classes="card" Padding="0">
+          <DockPanel>
+            <Border DockPanel.Dock="Top" Padding="16,10" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Employés" FontWeight="SemiBold" />
+                <TextBlock Grid.Column="1" Classes="label" Text="↑ ↓ puis Entrée" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <ListBox x:Name="EmployeeList" ItemsSource="{Binding Employees}" SelectedItem="{Binding SelectedEmployee}"
+                     Background="Transparent">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:EmployeeRowViewModel">
+                  <Grid ColumnDefinitions="36,*,Auto,Auto" ColumnSpacing="6">
+                    <TextBlock Text="{Binding NumberText}" Classes="label" FontSize="15" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding FullName}" TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                    <Border Grid.Column="2" Classes="state self" IsVisible="{Binding IsSelf}">
+                      <TextBlock Text="Vous" FontSize="12" FontWeight="Medium" Foreground="White" />
+                    </Border>
+                    <Border Grid.Column="3" Classes="state" Classes.active="{Binding IsActive}">
+                      <TextBlock Text="{Binding StateText}" FontSize="12" FontWeight="Medium" />
+                    </Border>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+
+        <!-- Création -->
+        <Border Grid.Row="1" Classes="card" Padding="14">
+          <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Nouvel employé" FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1" Classes="label" Text="Ctrl+N" VerticalAlignment="Center" />
+            </Grid>
+            <Grid ColumnDefinitions="96,*" ColumnSpacing="8">
+              <TextBox x:Name="NewNumberBox" Text="{Binding NewEmployeeNumber}" PlaceholderText="Matricule" Padding="10,9" />
+              <TextBox Grid.Column="1" x:Name="NewNameBox" Text="{Binding NewEmployeeName}" PlaceholderText="Nom complet"
+                       Padding="10,9" />
+            </Grid>
+            <TextBox x:Name="NewSecretBox" Text="{Binding NewEmployeeSecret}" PasswordChar="●"
+                     PlaceholderText="Code personnel" Padding="10,9" />
+            <Button x:Name="CreateButton" Classes="primary" Content="Créer l'employé (Entrée)"
+                    Command="{Binding CreateEmployeeCommand}" IsEnabled="{Binding !IsBusy}"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Fiche de l'employé -->
+      <Border Grid.Column="1" Classes="card" Padding="0">
+        <Grid>
+          <TextBlock Classes="emptyState" Text="Aucun employé sélectionné" IsVisible="{Binding !HasSelection}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <DockPanel IsVisible="{Binding HasSelection}">
+
+            <!-- En-tête -->
+            <Border DockPanel.Dock="Top" Padding="16,12" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock x:Name="SelectedTitleLabel" Text="{Binding SelectedTitle}" FontSize="18" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="SelectedStateLabel" Classes="label" Text="{Binding SelectedStateText}" />
+                  </StackPanel>
+                  <Button Grid.Column="1" x:Name="ToggleStateButton" Classes="quiet" Content="{Binding ToggleStateLabel}"
+                          Command="{Binding ToggleStateCommand}" />
+                </Grid>
+                <Border Background="{StaticResource PeachSoftBrush}" CornerRadius="8" Padding="12,8"
+                        IsVisible="{Binding IsSelfSelected}">
+                  <TextBlock x:Name="SelfExplanationLabel" FontSize="13" TextWrapping="Wrap"
+                             Text="{x:Static local:AdministrationViewModel.SelfExplanation}" />
+                </Border>
+                <Grid ColumnDefinitions="Auto,200,Auto" ColumnSpacing="8">
+                  <TextBlock Classes="label" Text="Nouveau code personnel" VerticalAlignment="Center" />
+                  <TextBox Grid.Column="1" x:Name="NewSecretResetBox" Text="{Binding NewSecret}" PasswordChar="●"
+                           Padding="10,9" />
+                  <Button Grid.Column="2" x:Name="ResetSecretButton" Classes="quiet" Content="Remplacer le code"
+                          Command="{Binding RequestSecretResetCommand}" />
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <!-- Enregistrement -->
+            <Border DockPanel.Dock="Bottom" Padding="16,10" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <TextBlock Classes="label" Text="Modifications non enregistrées" IsVisible="{Binding HasUnsavedChanges}"
+                           VerticalAlignment="Center" />
+                <Button Grid.Column="1" x:Name="SaveButton" Classes="primary" Content="Enregistrer les droits (Ctrl+S)"
+                        Command="{Binding SavePermissionsCommand}" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+
+            <!-- Droits -->
+            <ScrollViewer x:Name="PermissionsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl x:Name="PermissionsPanel" ItemsSource="{Binding PermissionGroups}" Margin="16,6,16,12">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="local:PermissionGroupViewModel">
+                    <StackPanel Margin="0,10,0,0">
+                      <TextBlock Classes="groupTitle" Text="{Binding Name}" />
+                      <ItemsControl ItemsSource="{Binding Permissions}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="local:PermissionChoiceViewModel">
+                            <Grid ColumnDefinitions="*,250" ColumnSpacing="12" MinHeight="38">
+                              <CheckBox IsChecked="{Binding IsGranted}" IsEnabled="{Binding IsEditable}"
+                                        Content="{Binding Label}" VerticalAlignment="Center" />
+                              <ComboBox Grid.Column="1" ItemsSource="{Binding Scopes}" SelectedItem="{Binding Scope}"
+                                        IsEnabled="{Binding CanChooseScope}" IsVisible="{Binding IsGranted}"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </DockPanel>
+        </Grid>
+      </Border>
+    </Grid>
+    </DockPanel>
+
+    <!-- Confirmation d'une opération critique -->
+    <Border x:Name="ConfirmationPanel" Background="#99111111" IsVisible="{Binding IsConfirming}" ZIndex="10">
+      <Border Classes="card" Width="460" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="16">
+          <TextBlock Text="Confirmation" FontSize="20" FontWeight="Bold" />
+          <TextBlock x:Name="ConfirmationLabel" Text="{Binding Confirmation.Message}" TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+            <Button Classes="quiet" Content="Annuler (Échap)" Command="{Binding CancelConfirmationCommand}"
+                    HorizontalAlignment="Stretch" MinHeight="46" Focusable="False" />
+            <Button Grid.Column="1" Classes="primary" Command="{Binding ConfirmCommand}" Focusable="False"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+              <TextBlock>
+                <Run Text="{Binding Confirmation.ConfirmLabel}" /><Run Text=" (Entrée)" />
+              </TextBlock>
+            </Button>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </Border>
+  </Grid>
+</UserControl>

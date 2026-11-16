@@ -2,9 +2,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Pharmaly.Contracts;
 using Pharmaly.Domain;
 
-namespace Pharmaly.Poste.ViewModels;
+namespace Pharmaly.Poste.Modules.Diagnostic;
 
-public sealed partial class SaleLineViewModel(ProductSummary product) : ObservableObject
+/// <summary>Ligne de l'écran d'essai. Ce n'est pas une ligne de vente : rien n'est enregistré.</summary>
+public sealed partial class TrialLineViewModel(ProductSummary product) : ObservableObject
 {
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(LineTotal), nameof(LineTotalText))]
