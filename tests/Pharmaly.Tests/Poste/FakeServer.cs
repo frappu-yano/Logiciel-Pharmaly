@@ -30,7 +30,7 @@ internal sealed partial class FakeServer
     /// <summary>Droits effectifs renvoyés à l'identification.</summary>
     public IReadOnlyList<string> EmployeePermissions { get; set; } = [Permissions.ProductsView];
 
-    public ServerClients Clients => new() { Access = this, Catalog = this, Admin = this, Stock = this };
+    public ServerClients Clients => new() { Access = this, Catalog = this, Admin = this, Stock = this, SupplierNotes = this };
 
     /// <summary>L'employé de test possède tous les droits.</summary>
     public FakeServer AsAdministrator()

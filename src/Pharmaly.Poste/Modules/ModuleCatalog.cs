@@ -65,7 +65,10 @@ public static class ModuleCatalog
                 Permissions.NotesView, Permissions.NotesEnter, Permissions.NotesEdit,
                 Permissions.NotesValidate, Permissions.NotesCancel,
             ],
-            _ => new SupplierNotesViewModel(), () => new SupplierNotesView()),
+            context => new SupplierNotesViewModel(
+                context.Clients.SupplierNotes, context.Clients.Catalog, context.Session.HasPermission,
+                new NoteHeartbeat(NoteHeartbeat.DefaultInterval), context.SearchDelay),
+            () => new SupplierNotesView()),
 
         new(ModuleKeys.Cash, "Caisse",
             [
