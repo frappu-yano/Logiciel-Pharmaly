@@ -19,6 +19,11 @@ public static class AuditActions
     public const string SecretReset = "CODE_REINITIALISE";
     public const string SiteInitialized = "SITE_INITIALISE";
     public const string RegisterAccountCreated = "COMPTE_CAISSE_CREE";
+    public const string ProductCreated = "PRODUIT_CREE";
+    public const string ProductUpdated = "PRODUIT_MODIFIE";
+    public const string SalePriceChanged = "PRIX_VENTE_MODIFIE";
+    public const string StockAdjusted = "STOCK_AJUSTE";
+    public const string StockTransferred = "STOCK_TRANSFERE";
 }
 
 public sealed record AuditEntry(

@@ -51,7 +51,9 @@ public sealed class ServerFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         await ExecuteAsAdminAsync($"CREATE DATABASE {databaseName}");
-        ConnectionString = new NpgsqlConnectionStringBuilder(adminConnection) { Database = databaseName }.ConnectionString;
+        // Réserve de connexions bornée : les tests de concurrence lancent des dizaines de demandes
+        // à la fois et plusieurs séries tournent en parallèle sur le même PostgreSQL.
+        ConnectionString = new NpgsqlConnectionStringBuilder(adminConnection) { Database = databaseName, MaxPoolSize = 30 }.ConnectionString;
         DataSource = NpgsqlDataSource.Create(ConnectionString);
 
         factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>

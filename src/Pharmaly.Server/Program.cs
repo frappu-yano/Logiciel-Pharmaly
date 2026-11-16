@@ -1,10 +1,11 @@
 using System.Reflection;
 using Npgsql;
 using Pharmaly.Contracts;
-using Pharmaly.Domain;
 using Pharmaly.Server.Access;
 using Pharmaly.Server.Catalog;
 using Pharmaly.Server.Database;
+using Pharmaly.Server.Operations;
+using Pharmaly.Server.Stock;
 
 const string DemoDataArgument = "--donnees-fictives";
 const string MigrateOnlyArgument = "--migrer";
@@ -35,6 +36,8 @@ builder.Services.AddSingleton<ProductQueries>();
 builder.Services.AddSingleton<DemoDataSeeder>();
 builder.Services.AddSingleton<AccessService>();
 builder.Services.AddSingleton<SiteSetup>();
+builder.Services.AddSingleton<OperationRunner>();
+builder.Services.AddSingleton<StockEngine>();
 
 var app = builder.Build();
 
@@ -110,16 +113,8 @@ app.MapGet(ApiRoutes.Health, async (NpgsqlDataSource dataSource, CancellationTok
     }
 });
 
-app.MapGet(ApiRoutes.ProductSearch, async (string? q, int? limite, ProductQueries queries, CancellationToken cancellationToken) =>
-    Results.Ok(await queries.SearchAsync(q, limite ?? ProductQueries.DefaultLimit, cancellationToken)))
-    .RequirePermission(Permissions.ProductsView);
-
-app.MapGet(ApiRoutes.ProductByBarcode + "/{barcode}", async (string barcode, ProductQueries queries, CancellationToken cancellationToken) =>
-    await queries.FindByBarcodeAsync(barcode, cancellationToken) is { } product
-        ? Results.Ok(product)
-        : Results.NotFound())
-    .RequirePermission(Permissions.ProductsView);
-
+app.MapProductEndpoints();
+app.MapStockEndpoints();
 app.MapAccessEndpoints();
 app.MapEmployeeAdminEndpoints();
 app.MapStoreEndpoints();

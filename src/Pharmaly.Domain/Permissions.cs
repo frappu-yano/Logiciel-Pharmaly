@@ -30,6 +30,10 @@ public static class Permissions
     public const string ReceivablesSettle = "impayes.regler";
     public const string UsersAdminister = "admin.utilisateurs";
 
+    // Ajouts proposés avec le moteur de stock : absents de la liste du cahier des charges, à valider.
+    public const string StockAdjust = "stock.ajuster";
+    public const string StockTransfer = "stock.transferer";
+
     public static readonly IReadOnlyList<PermissionDefinition> All =
     [
         new(ProductsView, "Consulter les produits", "Produits"),
@@ -53,6 +57,8 @@ public static class Permissions
         new(ReceivablesView, "Consulter les impayés", "Caisse"),
         new(ReceivablesSettle, "Régler les impayés", "Caisse"),
         new(UsersAdminister, "Administrer les utilisateurs et permissions", "Administration"),
+        new(StockAdjust, "Ajuster un stock (inventaire)", "Stock"),
+        new(StockTransfer, "Transférer du stock entre emplacements", "Stock"),
     ];
 
     private static readonly HashSet<string> KnownCodes = All.Select(permission => permission.Code).ToHashSet();

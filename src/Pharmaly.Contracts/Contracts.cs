@@ -12,7 +12,9 @@ public sealed record ProductSummary(
     long Code,
     string Name,
     decimal SalePrice,
-    string? Barcode);
+    string? Barcode,
+    // Stock vendable du site du poste (emplacements « VENDABLE » uniquement).
+    decimal SellableStock = 0);
 
 public static class ApiRoutes
 {
@@ -25,6 +27,19 @@ public static class ApiRoutes
     public const string CurrentIdentity = "/acces/moi";
     public const string Employees = "/employes";
     public const string Stores = "/sites";
+
+    /// <summary>POST : créer. GET et PUT « /produits/{id} » : fiche et modification.</summary>
+    public const string Products = "/produits";
+
+    /// <summary>PUT « /produits/{id}/prix-vente ».</summary>
+    public const string ProductSalePriceSuffix = "prix-vente";
+    public const string StockLocations = "/stock/emplacements";
+    public const string StockAdjustments = "/stock/ajustements";
+    public const string StockTransfers = "/stock/transferts";
+
+    public static string Product(Guid id) => $"{Products}/{id}";
+
+    public static string ProductSalePrice(Guid id) => $"{Products}/{id}/{ProductSalePriceSuffix}";
 }
 
 /// <summary>Réponse d'erreur du serveur : un code stable et un message lisible par l'employé.</summary>
@@ -41,6 +56,11 @@ public static class ApiErrorCodes
     public const string SelfModificationForbidden = "MODIFICATION_DE_SOI_INTERDITE";
     public const string NotFound = "INTROUVABLE";
     public const string Conflict = "CONFLIT";
+    public const string InsufficientStock = "STOCK_INSUFFISANT";
+    public const string FractionalQuantity = "QUANTITE_FRACTIONNAIRE_INTERDITE";
+
+    /// <summary>L'identifiant d'opération a déjà servi pour une autre demande.</summary>
+    public const string OperationMismatch = "OPERATION_DEJA_UTILISEE";
 }
 
 public static class ApiHeaders
@@ -72,3 +92,108 @@ public sealed record SetEmployeeStateRequest(bool IsActive);
 public sealed record ResetSecretRequest(string Secret);
 
 public sealed record StoreSummary(Guid Id, string Code, string Name, string Kind);
+
+// ---------- Catalogue ----------
+// Toute commande d'écriture porte un OperationId (UUID généré par le poste) : la rejouer
+// renvoie le résultat déjà enregistré sans rien refaire.
+
+/// <summary>Marque et catégorie sont créées à la volée si leur nom est nouveau.</summary>
+public sealed record CreateProductRequest(
+    Guid OperationId,
+    string Name,
+    IReadOnlyList<string> Barcodes,
+    string? Brand,
+    string? Category,
+    decimal SalePrice,
+    bool SoldByUnit);
+
+/// <summary>Le prix de vente ne se modifie pas ici : voir <see cref="ChangeSalePriceRequest"/>.</summary>
+public sealed record UpdateProductRequest(
+    Guid OperationId,
+    string Name,
+    string? Brand,
+    string? Category,
+    bool IsActive,
+    IReadOnlyList<string>? BarcodesToAdd,
+    IReadOnlyList<string>? BarcodesToRemove);
+
+public sealed record ChangeSalePriceRequest(Guid OperationId, decimal NewPrice);
+
+public sealed record SalePriceChangeResult(Guid ProductId, decimal OldPrice, decimal NewPrice);
+
+public sealed record ProductDetail(
+    Guid Id,
+    long Code,
+    string Name,
+    string? Brand,
+    string? Category,
+    decimal SalePrice,
+    bool SoldByUnit,
+    bool IsActive,
+    IReadOnlyList<string> Barcodes,
+    IReadOnlyList<ProductStockLine> Stock,
+    IReadOnlyList<StockMovementLine> RecentMovements,
+    IReadOnlyList<SalePriceHistoryLine> SalePriceHistory);
+
+/// <summary>Solde d'un produit à un emplacement (0 si le produit n'y a jamais été).</summary>
+public sealed record ProductStockLine(
+    Guid LocationId,
+    string LocationCode,
+    string LocationName,
+    string LocationKind,
+    Guid StoreId,
+    string StoreName,
+    decimal Quantity);
+
+public sealed record StockMovementLine(
+    long Id,
+    DateTimeOffset OccurredAt,
+    Guid LocationId,
+    string LocationName,
+    string Type,
+    decimal Quantity,
+    decimal BalanceAfter,
+    string EmployeeName,
+    string? SourceType,
+    string? SourceId,
+    string? Note);
+
+/// <summary>OldPrice est absent pour le prix fixé à la création.</summary>
+public sealed record SalePriceHistoryLine(DateTimeOffset ChangedAt, decimal? OldPrice, decimal NewPrice, string EmployeeName);
+
+// ---------- Stock ----------
+
+public sealed record StockLocationSummary(Guid Id, string Code, string Name, string Kind, Guid StoreId, string StoreName);
+
+/// <summary>
+/// Ajustement d'inventaire. Renseigner soit NewQuantity (quantité comptée), soit
+/// QuantityChange (correction en plus ou en moins), jamais les deux. Reason est obligatoire.
+/// </summary>
+public sealed record StockAdjustmentRequest(
+    Guid OperationId,
+    Guid ProductId,
+    Guid LocationId,
+    decimal? NewQuantity,
+    decimal? QuantityChange,
+    string Reason);
+
+public sealed record StockAdjustmentResult(
+    Guid ProductId,
+    Guid LocationId,
+    decimal QuantityBefore,
+    decimal QuantityChange,
+    decimal QuantityAfter);
+
+public sealed record StockTransferLine(Guid ProductId, decimal Quantity);
+
+/// <summary>Transfert simple : sortie et entrée dans la même transaction, tout ou rien.</summary>
+public sealed record StockTransferRequest(
+    Guid OperationId,
+    Guid FromLocationId,
+    Guid ToLocationId,
+    IReadOnlyList<StockTransferLine> Lines,
+    string? Note);
+
+public sealed record StockTransferResultLine(Guid ProductId, decimal Quantity, decimal FromQuantityAfter, decimal ToQuantityAfter);
+
+public sealed record StockTransferResult(Guid TransferId, IReadOnlyList<StockTransferResultLine> Lines);
