@@ -7,6 +7,7 @@ using Pharmaly.Server.Database;
 using Pharmaly.Server.Maintenance;
 using Pharmaly.Server.Operations;
 using Pharmaly.Server.Stock;
+using Pharmaly.Server.SupplierNotes;
 
 const string DemoDataArgument = "--donnees-fictives";
 const string MigrateOnlyArgument = "--migrer";
@@ -40,6 +41,7 @@ builder.Services.AddSingleton<SiteSetup>();
 builder.Services.AddSingleton<BackupService>();
 builder.Services.AddSingleton<OperationRunner>();
 builder.Services.AddSingleton<StockEngine>();
+builder.Services.AddSupplierNotes();
 
 var app = builder.Build();
 
@@ -135,6 +137,7 @@ app.MapGet(ApiRoutes.Health, async (NpgsqlDataSource dataSource, CancellationTok
 
 app.MapProductEndpoints();
 app.MapStockEndpoints();
+app.MapSupplierNoteEndpoints();
 app.MapAccessEndpoints();
 app.MapEmployeeAdminEndpoints();
 app.MapStoreEndpoints();
