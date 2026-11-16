@@ -122,6 +122,17 @@ dans `DECISIONS.md`), à valider. Le mode secours hors ligne (O4) n'est pas dév
   (création, modification, prix de vente historisé, fiche produit), ajustement d'inventaire,
   transfert simple. Tests après fusion : **106 réussis, 0 échec**.
 
+- **Interruption** : vers 2 h, la limite d'usage de l'abonnement a coupé les quatre agents
+  en cours. Reprise le 16/11 au matin, à trois agents au maximum.
+- Fusionnés ensuite, tests après chaque fusion :
+  - navigation du poste, administration des droits, verrouillage par inactivité (169) ;
+  - bons fournisseurs, serveur (201) ;
+  - chiffrement des échanges et épinglage du certificat (247) ;
+  - ventes, caisse et impayés, serveur : migration 0005, 83 tests dont les ventes
+    concurrentes, le double clic, le règlement groupé tout ou rien, le double règlement
+    simultané et un contrôle d'intégrité financière en 19 règles (**330 réussis, 0 échec**).
+- Choix faits par les agents en l'absence de règle : D19 à D31 dans `DECISIONS.md`.
+
 ## 13/11/2026 — Prototype
 
 - Prototype Next.js + PostgreSQL (caisse, ventes, stock simple), testé dans un

@@ -82,6 +82,20 @@ ou constante nommée) pour que le changement soit simple.
 | D17 | Droit de stock limité à un site | Vérifié sur le site de chaque emplacement touché, pas seulement sur celui du poste |
 | D18 | Produit désactivé | Ajustements et transferts restent permis, pour vider son stock |
 
+| D19 | TPE refusé sur une vente | La vente est annulée et le stock restitué aussitôt ; pour payer autrement, on refait une vente (nouveau ticket) |
+| D20 | Vente impayée et caisse | Une vente impayée exige une caisse ouverte, pour qu'aucun ticket n'échappe à la clôture |
+| D21 | Employé qui a « vendre » sans « encaisser » | Il ne peut enregistrer que des ventes impayées. Aucun circuit « vente préparée par l'un, encaissée par un autre » n'est décrit, donc aucun n'a été inventé |
+| D22 | Entrées et sorties d'espèces hors vente | Soumises au droit « encaisser les paiements », faute de droit dédié ; motif obligatoire |
+| D23 | Paiement TPE resté en attente | Débloqué par un « refusé » explicite d'un employé autorisé ; pas d'expiration automatique ; une caisse ne pourra pas être clôturée avec un TPE en attente |
+| D24 | Remboursement à l'annulation d'une vente | En espèces : sortie de la caisse du poste qui annule. Par carte : tracé sans sortie d'espèces |
+| D25 | Arrondi | Au centime, la demie arrondie vers le haut, pour chaque ligne et pour une remise en pourcentage |
+| D26 | Même produit deux fois dans une vente | Les quantités se cumulent sur une seule ligne |
+| D27 | Impayés et sites | Le tableau des impayés n'est pas limité à un site ; une créance peut être réglée à n'importe quelle caisse et compte dans la caisse qui encaisse |
+| D28 | Bon fournisseur vide | Sa validation est refusée |
+| D29 | Lecture des bons | Ouverte à tout employé ayant un droit sur les bons, pas seulement « consulter » |
+| D30 | Verrou d'un bon | Il appartient à l'employé, qui peut reprendre son bon depuis un autre poste ; bail de 2 minutes renouvelé tant que l'écran est ouvert |
+| D31 | Chiffrement | Certificat du serveur approuvé une fois par poste (F8) ; changer de serveur exige une action volontaire (`--oublier-serveur`) |
+
 **Non décidé et donc NON développé : le mode secours hors ligne (O4).** La direction a
 demandé explicitement de ne pas choisir sans son accord. Le code le prépare (identifiants
 générés par le poste, idempotence) mais aucune vente hors ligne n'est possible.
