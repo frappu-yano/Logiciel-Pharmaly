@@ -171,6 +171,10 @@ public sealed partial class SalesView : UserControl, IModuleView
 
     private static bool IsControl(KeyEventArgs e) => e.KeyModifiers.HasFlag(KeyModifiers.Control);
 
+    private static bool IsLineKey(KeyEventArgs e) =>
+        e.Key is Key.Up or Key.Down or Key.Delete || IsSymbol(e, Key.Add, "+") || IsSymbol(e, Key.Subtract, "-")
+        || IsSymbol(e, Key.Divide, "/");
+
     private static bool IsSymbol(KeyEventArgs e, Key numericPadKey, string symbol) => e.Key == numericPadKey || e.KeySymbol == symbol;
 
     private static async Task HandleCashClosedKeyAsync(SalesViewModel viewModel, KeyEventArgs e)
@@ -241,6 +245,14 @@ public sealed partial class SalesView : UserControl, IModuleView
         }
 
         var queryIsEmpty = string.IsNullOrEmpty(viewModel.Query);
+        if (queryIsEmpty && IsLineKey(e))
+        {
+            // Une touche frappée juste après un scan porte sur la ligne que ce scan ajoute. Elle est
+            // déclarée traitée avant l'attente : sinon le caractère partirait dans la recherche.
+            e.Handled = true;
+            await viewModel.WaitForPendingScansAsync();
+        }
+
         switch (e.Key)
         {
             case SalesShortcuts.UnpaidKey:

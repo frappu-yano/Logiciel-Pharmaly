@@ -60,7 +60,7 @@
           <ComboBox Grid.Column="5" x:Name="StatusBox" ItemsSource="{Binding StatusChoices}" SelectedItem="{Binding SelectedStatus}"
                     HorizontalAlignment="Stretch" VerticalAlignment="Center" />
           <TextBox Grid.Column="6" x:Name="TicketBox" Text="{Binding TicketQuery}" Padding="10,8"
-                   PlaceholderText="N° de ticket, ou scanner le code-barres du ticket" />
+                   PlaceholderText="N° ou code-barres du ticket" />
         </Grid>
       </Border>
 
@@ -166,12 +166,14 @@
                 <ItemsControl ItemsSource="{Binding Lines}" Margin="14,6">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="local:SaleDetailLineViewModel">
-                      <Grid ColumnDefinitions="*,44,96,104" ColumnSpacing="8" Margin="0,4">
-                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="14" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Classes="number" Text="{Binding QuantityText}" FontSize="14" />
-                        <TextBlock Grid.Column="2" Classes="label number" Text="{Binding UnitPriceText}" />
-                        <TextBlock Grid.Column="3" Classes="number" Text="{Binding LineTotalText}" FontSize="14" FontWeight="SemiBold" />
-                      </Grid>
+                      <StackPanel Margin="0,4" Spacing="1">
+                        <TextBlock Text="{Binding Name}" TextWrapping="Wrap" FontSize="14" />
+                        <Grid ColumnDefinitions="*,52,104,110" ColumnSpacing="8">
+                          <TextBlock Grid.Column="1" Classes="number" Text="{Binding QuantityText, StringFormat='× {0}'}" FontSize="14" />
+                          <TextBlock Grid.Column="2" Classes="label number" Text="{Binding UnitPriceText}" />
+                          <TextBlock Grid.Column="3" Classes="number" Text="{Binding LineTotalText}" FontSize="14" FontWeight="SemiBold" />
+                        </Grid>
+                      </StackPanel>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>

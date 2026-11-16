@@ -88,7 +88,8 @@ public sealed class SalesWindowTests
         Press(window, PhysicalKey.Enter);
         await SettleAsync();
         Assert.True(Shown(view, "OpeningConfirmationPanel"));
-        Assert.Equal("Ouvrir la caisse avec un fond de caisse de 5 000,00 DA ?", Text(view, "OpeningConfirmationLabel"));
+        Assert.Equal("5 000,00 DA", Text(view, "OpeningConfirmationLabel"));
+        Assert.Equal("Ouvrir la caisse avec un fond de caisse de 5 000,00 DA ?", viewModel.OpeningConfirmationText);
         Assert.Empty(server.OpenSessionRequests);
 
         // Entrée confirme : la caisse est ouverte, le curseur est dans la recherche.
@@ -360,6 +361,33 @@ public sealed class SalesWindowTests
         await SettleAsync();
         Assert.True(Shown(view, "CartPanel"));
         Assert.True(view.FindControl<TextBox>("SearchBox")!.IsFocused);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Plus_frappe_juste_apres_un_scan_encore_en_route_porte_sur_le_produit_scanne()
+    {
+        server.WithOpenCashSession();
+        var (window, shell) = OpenWindow();
+        await SignInWithKeyboardAsync(window);
+        var view = SalesViewOf(window);
+        var viewModel = Assert.IsType<SalesViewModel>(shell.CurrentModule);
+        await ScanAsync(window, FakeServer.Creme.Barcode!);
+
+        // Le serveur tarde à répondre au second scan ; le caissier frappe + aussitôt.
+        server.BarcodeGate = new TaskCompletionSource();
+        window.KeyTextInput(FakeServer.Serum.Barcode!);
+        Press(window, PhysicalKey.Enter);
+        Press(window, PhysicalKey.NumPadAdd);
+        await SettleAsync();
+        Assert.Equal([1m], viewModel.Lines.Select(line => line.Quantity));
+
+        server.BarcodeGate.SetResult();
+        await SettleAsync();
+
+        Assert.Equal([FakeServer.Creme.Id, FakeServer.Serum.Id], viewModel.Lines.Select(line => line.ProductId));
+        Assert.Equal([1m, 2m], viewModel.Lines.Select(line => line.Quantity));
+        Assert.Equal(string.Empty, view.FindControl<TextBox>("SearchBox")!.Text ?? string.Empty);
         window.Close();
     }
 

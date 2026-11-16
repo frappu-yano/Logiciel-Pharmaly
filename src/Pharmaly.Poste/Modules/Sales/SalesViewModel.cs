@@ -215,6 +215,10 @@ public sealed partial class SalesViewModel : ModuleViewModel
     [ObservableProperty]
     private string openingConfirmationText = string.Empty;
 
+    /// <summary>Fond de caisse à confirmer, affiché en grand.</summary>
+    [ObservableProperty]
+    private string openingFloatDisplayText = string.Empty;
+
     private decimal openingFloat;
 
     public override async Task ActivateAsync()
@@ -285,6 +289,7 @@ public sealed partial class SalesViewModel : ModuleViewModel
         ErrorMessage = string.Empty;
         openingFloat = amount;
         OpeningConfirmationText = $"Ouvrir la caisse avec un fond de caisse de {Money.ToDisplay(amount)} ?";
+        OpeningFloatDisplayText = Money.ToDisplay(amount);
         IsConfirmingOpening = true;
     }
 

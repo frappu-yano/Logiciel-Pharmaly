@@ -42,9 +42,17 @@ internal sealed partial class FakeServer : ICatalogClient
                 .Select(Current).ToList());
     }
 
-    public Task<ProductSummary?> FindByBarcodeAsync(string barcode, CancellationToken cancellationToken)
+    /// <summary>Quand il est défini, chaque lecture de code-barres attend qu'il soit terminé (serveur lent).</summary>
+    public TaskCompletionSource? BarcodeGate { get; set; }
+
+    public async Task<ProductSummary?> FindByBarcodeAsync(string barcode, CancellationToken cancellationToken)
     {
+        if (BarcodeGate is { } gate)
+        {
+            await gate.Task;
+        }
+
         EnsurePermission(Permissions.ProductsView);
-        return Task.FromResult(catalogue.Where(product => product.Barcode == barcode).Select(Current).FirstOrDefault());
+        return catalogue.Where(product => product.Barcode == barcode).Select(Current).FirstOrDefault();
     }
 }

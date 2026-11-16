@@ -367,6 +367,19 @@ public sealed partial class SalesViewModel
     }
 
     /// <summary>
+    /// Attend les lectures de codes-barres encore en route : une touche (+, −, Suppr…) frappée
+    /// juste après un scan porte sur la ligne que ce scan vient d'ajouter.
+    /// </summary>
+    public async Task WaitForPendingScansAsync()
+    {
+        while (pendingScans.Count > 0)
+        {
+            await Task.WhenAll(pendingScans.ToArray());
+            pendingScans.RemoveAll(scan => scan.IsCompleted);
+        }
+    }
+
+    /// <summary>
     /// Avant d'ouvrir une étape, les lectures de codes-barres encore en route sont attendues :
     /// le total ne change jamais sous les yeux du caissier pendant un encaissement.
     /// </summary>
@@ -377,12 +390,7 @@ public sealed partial class SalesViewModel
             return false;
         }
 
-        while (pendingScans.Count > 0)
-        {
-            await Task.WhenAll(pendingScans.ToArray());
-            pendingScans.RemoveAll(scan => scan.IsCompleted);
-        }
-
+        await WaitForPendingScansAsync();
         if (!IsCartEditable)
         {
             return false;
