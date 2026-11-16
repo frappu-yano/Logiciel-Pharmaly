@@ -76,6 +76,12 @@ ou constante nommée) pour que le changement soit simple.
 | D12 | Remises | En montant ou en pourcentage, sur la vente entière ; jamais supérieures au total |
 | D13 | Annulation d'une vente | Possible tant que la journée n'est pas clôturée ; au-delà, passer par un retour |
 
+| D14 | Deux droits ajoutés à la liste | `stock.ajuster` (ajustement d'inventaire) et `stock.transferer` (transfert entre emplacements) : absents du cahier des charges, nécessaires pour charger et corriger un stock |
+| D15 | Codes-barres | Au moins un code-barres par produit ; le dernier ne peut pas être retiré. À assouplir si des produits sans code-barres existent |
+| D16 | Identifiant d'opération réutilisé | Refusé s'il sert à une demande différente ; une commande refusée n'enregistre rien et peut être retentée |
+| D17 | Droit de stock limité à un site | Vérifié sur le site de chaque emplacement touché, pas seulement sur celui du poste |
+| D18 | Produit désactivé | Ajustements et transferts restent permis, pour vider son stock |
+
 **Non décidé et donc NON développé : le mode secours hors ligne (O4).** La direction a
 demandé explicitement de ne pas choisir sans son accord. Le code le prépare (identifiants
 générés par le poste, idempotence) mais aucune vente hors ligne n'est possible.

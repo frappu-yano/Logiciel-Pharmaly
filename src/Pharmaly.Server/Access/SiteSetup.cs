@@ -10,6 +10,8 @@ namespace Pharmaly.Server.Access;
 /// </summary>
 public sealed class SiteSetup(NpgsqlDataSource dataSource)
 {
+    public const string MainLocationCode = "PRINCIPAL";
+    public const string SetAsideLocationCode = "ECARTE";
     private const int EmployeeCodeDigits = 6;
 
     public async Task<Guid> InitializeSiteAsync(string code, string name, string kind)
@@ -20,9 +22,21 @@ public sealed class SiteSetup(NpgsqlDataSource dataSource)
             "INSERT INTO stores (code, name, kind) VALUES (@code, @name, @kind) RETURNING id",
             new { code = code.ToUpperInvariant(), name, kind = kind.ToUpperInvariant() },
             transaction);
+        // Chaque site a un stock vendable et un emplacement pour les produits mis à l'écart.
         await connection.ExecuteAsync(
-            "INSERT INTO stock_locations (store_id, code, name) VALUES (@storeId, 'PRINCIPAL', 'Stock principal')",
-            new { storeId },
+            """
+            INSERT INTO stock_locations (store_id, code, name, kind) VALUES
+                (@storeId, @MainLocationCode, 'Stock principal', @sellable),
+                (@storeId, @SetAsideLocationCode, 'Produits mis à l''écart', @setAside)
+            """,
+            new
+            {
+                storeId,
+                MainLocationCode,
+                SetAsideLocationCode,
+                sellable = StockLocationKinds.Sellable,
+                setAside = StockLocationKinds.SetAside,
+            },
             transaction);
         await AuditLog.WriteAsync(
             connection, new AuditEntry(AuditActions.SiteInitialized, StoreId: storeId, Details: new { code, nom = name, type = kind }), transaction);

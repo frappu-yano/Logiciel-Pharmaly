@@ -109,6 +109,19 @@ Reste à faire dans le lot 1 :
 - chiffrement des échanges poste-serveur ;
 - modèles de rôles (dépend de O10) ; verrouillage automatique après inactivité.
 
+## 16/11/2026 — Nuit de développement autonome
+
+Instruction de la direction : tout enchaîner sans attendre de réponse, avec des agents en
+parallèle. Les règles encore ouvertes sont appliquées comme choix par défaut (D1 à D18
+dans `DECISIONS.md`), à valider. Le mode secours hors ligne (O4) n'est pas développé.
+
+- Lot 1, première partie : vérifiée sur Windows (exécution n° 5 réussie).
+- Sauvegarde vérifiée et restauration dans une base neuve (`--sauvegarder`, `--restaurer`), 3 tests.
+- **Lot 2 serveur fusionné** : migration 0003, moteur de stock (journal en ajout seul,
+  solde jamais négatif, verrouillage ordonné), idempotence (`OperationRunner`), catalogue
+  (création, modification, prix de vente historisé, fiche produit), ajustement d'inventaire,
+  transfert simple. Tests après fusion : **106 réussis, 0 échec**.
+
 ## 13/11/2026 — Prototype
 
 - Prototype Next.js + PostgreSQL (caisse, ventes, stock simple), testé dans un
