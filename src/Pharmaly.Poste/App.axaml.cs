@@ -19,9 +19,24 @@ public sealed class App : Application
         {
             var options = LaunchOptions.Parse(desktop.Args ?? []);
             var settings = PosteSettings.Load(options.ServerUrl);
-            var clients = ServerClients.Create(new ServerTransport(settings, new PosteTokenStore()));
+            var tokenStore = new PosteTokenStore();
+            var pinStore = new ServerPinStore();
+            if (options.ForgetServer)
+            {
+                // La connexion du poste appartenait à l'ancien serveur : elle part avec lui.
+                pinStore.Clear();
+                tokenStore.Clear();
+            }
+
+            // L'essai automatique tourne sans personne pour comparer l'empreinte : celui qui le
+            // lance la fournit. Hors essai, cette variable n'est jamais lue.
+            var trust = new ServerTrust(
+                settings.ServerUrl,
+                pinStore,
+                options.AutoBenchmark ? Environment.GetEnvironmentVariable(LaunchOptions.TrialFingerprintVariable) : null);
+            var clients = ServerClients.Create(new ServerTransport(settings, tokenStore, trust));
             var shell = new ShellViewModel(
-                clients, new InactivityTimer(ShellViewModel.InactivityLockDelay), DiagnosticViewModel.DefaultSearchDelay);
+                clients, new InactivityTimer(ShellViewModel.InactivityLockDelay), DiagnosticViewModel.DefaultSearchDelay, trust: trust);
             desktop.MainWindow = new MainWindow(shell, options);
         }
 

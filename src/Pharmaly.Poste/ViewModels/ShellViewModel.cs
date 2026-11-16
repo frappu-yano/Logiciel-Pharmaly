@@ -39,11 +39,12 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly Dictionary<string, ModuleViewModel> openedModules = [];
 
     public ShellViewModel(
-        ServerClients clients, IInactivityTimer inactivity, TimeSpan searchDelay, IReadOnlyList<ModuleDefinition>? catalog = null)
+        ServerClients clients, IInactivityTimer inactivity, TimeSpan searchDelay, IReadOnlyList<ModuleDefinition>? catalog = null,
+        IServerTrust? trust = null)
     {
         this.catalog = catalog ?? ModuleCatalog.All;
         this.inactivity = inactivity;
-        Session = new SessionViewModel(clients.Access);
+        Session = new SessionViewModel(clients.Access, trust);
         Status = new ServerStatusViewModel(clients.Access);
         context = new ModuleContext(clients, Session, Status, searchDelay);
 

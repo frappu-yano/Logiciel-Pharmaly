@@ -27,6 +27,14 @@ public sealed partial class ServerStatusViewModel(IAccessClient access) : Observ
                 _ => $"Connecté au serveur — version {health.Version}",
             };
         }
+        catch (ServerRefusedException refused)
+        {
+            // Le poste a refusé de parler à ce serveur (non approuvé, ou échanges non chiffrés).
+            IsConnected = false;
+            StatusText = refused.Code == ServerTrust.ClearHttpCode
+                ? "Échanges non chiffrés refusés"
+                : "Serveur non approuvé — connexion refusée";
+        }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             MarkUnreachable();

@@ -9,7 +9,9 @@ public sealed record PosteSettings(Uri ServerUrl)
     private const string LocalFileName = "poste.local.json";
     // Adresse numérique et non « localhost » : sous Windows, « localhost » essaie d'abord
     // l'IPv6 et peut faire perdre deux secondes à chaque connexion.
-    private const string DefaultServerUrl = "http://127.0.0.1:5080";
+    // « https:// » : échanges chiffrés, serveur reconnu à son empreinte. Une adresse « http:// »
+    // n'est acceptée que vers cette même machine (développement) : voir ServerTrust.
+    private const string DefaultServerUrl = "https://127.0.0.1:5443";
 
     public static PosteSettings Load(string? serverUrlOverride = null)
     {

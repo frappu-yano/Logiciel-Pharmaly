@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Security;
+using System.Security.Authentication;
 using Pharmaly.Contracts;
 
 namespace Pharmaly.Poste.Services.Server;
@@ -27,6 +29,9 @@ public interface IServerTransport
     /// <summary>
     /// Envoie une demande et lit la réponse. Un refus du serveur lève
     /// <see cref="ServerRefusedException"/> avec le code et le message français de <see cref="ApiError"/>.
+    /// La même exception est levée, avec un code de <see cref="ServerTrust"/>, quand c'est le
+    /// poste qui refuse de parler au serveur (serveur non approuvé, échanges non chiffrés) :
+    /// rien n'a alors été envoyé.
     /// </summary>
     Task<T?> SendAsync<T>(
         HttpMethod method, string route, object? body, CancellationToken cancellationToken, bool notFoundIsNull = false)
@@ -43,18 +48,29 @@ public interface IServerTransport
         where T : class;
 }
 
-/// <summary>Dialogue avec le serveur du site, sur le réseau interne uniquement.</summary>
+/// <summary>
+/// Dialogue avec le serveur du site, sur le réseau interne uniquement. Les échanges sont
+/// chiffrés (HTTPS, TLS 1.2 au minimum) et le serveur est reconnu à son empreinte : voir
+/// <see cref="ServerTrust"/>. Une adresse en https:// ne retombe jamais en HTTP clair.
+/// </summary>
 public sealed class ServerTransport : IServerTransport, IDisposable
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(4);
     private readonly HttpClient http;
     private readonly IPosteTokenStore tokenStore;
+    private readonly ServerTrust? trust;
     private string? posteToken;
     private string? employeeToken;
 
-    public ServerTransport(PosteSettings settings, IPosteTokenStore tokenStore)
-        : this(CreateHandler(), settings.ServerUrl, tokenStore)
+    public ServerTransport(PosteSettings settings, IPosteTokenStore tokenStore, ServerTrust trust)
+        : this(settings.ServerUrl, tokenStore, trust)
     {
+    }
+
+    public ServerTransport(Uri serverUrl, IPosteTokenStore tokenStore, ServerTrust trust)
+        : this(CreateHandler(trust), serverUrl, tokenStore)
+    {
+        this.trust = trust;
     }
 
     /// <summary>Pour les tests : le transport parle à un gestionnaire HTTP fourni.</summary>
@@ -65,12 +81,20 @@ public sealed class ServerTransport : IServerTransport, IDisposable
         http = new HttpClient(handler) { BaseAddress = serverUrl, Timeout = RequestTimeout };
     }
 
-    private static SocketsHttpHandler CreateHandler() => new()
+    private static SocketsHttpHandler CreateHandler(ServerTrust trust) => new()
     {
         // Le poste ne passe jamais par un proxy : le serveur est sur le réseau du site.
         UseProxy = false,
+        // Aucune redirection n'est suivie : un serveur ne peut pas envoyer le poste ailleurs,
+        // ni vers une adresse non chiffrée.
+        AllowAutoRedirect = false,
         PooledConnectionLifetime = TimeSpan.FromMinutes(10),
         ConnectTimeout = TimeSpan.FromSeconds(3),
+        SslOptions = new SslClientAuthenticationOptions
+        {
+            EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+            RemoteCertificateValidationCallback = (_, certificate, _, _) => trust.Accepts(certificate),
+        },
     };
 
     public bool HasPosteToken => posteToken is not null;
@@ -130,6 +154,11 @@ public sealed class ServerTransport : IServerTransport, IDisposable
     private async Task<HttpResponseMessage> SendRequestAsync(
         HttpMethod method, string route, object? body, CancellationToken cancellationToken)
     {
+        if (trust?.RefusalBeforeConnecting() is { } notEncrypted)
+        {
+            throw notEncrypted;
+        }
+
         using var request = new HttpRequestMessage(method, route.TrimStart('/'));
         if (posteToken is not null)
         {
@@ -146,7 +175,27 @@ public sealed class ServerTransport : IServerTransport, IDisposable
             request.Content = JsonContent.Create(body, body.GetType());
         }
 
-        return await http.SendAsync(request, cancellationToken);
+        try
+        {
+            return await http.SendAsync(request, cancellationToken);
+        }
+        catch (HttpRequestException exception) when (IsFailedHandshake(exception) && trust?.RefusalAfterFailedHandshake() is { } notTrusted)
+        {
+            throw notTrusted;
+        }
+    }
+
+    private static bool IsFailedHandshake(Exception? exception)
+    {
+        for (; exception is not null; exception = exception.InnerException)
+        {
+            if (exception is AuthenticationException)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static async Task<ServerRefusedException> ReadRefusalAsync(
