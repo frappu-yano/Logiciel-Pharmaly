@@ -52,8 +52,9 @@ public sealed class ServerFixture : IAsyncLifetime
     {
         await ExecuteAsAdminAsync($"CREATE DATABASE {databaseName}");
         // Réserve de connexions bornée : les tests de concurrence lancent des dizaines de demandes
-        // à la fois et plusieurs séries tournent en parallèle sur le même PostgreSQL.
-        ConnectionString = new NpgsqlConnectionStringBuilder(adminConnection) { Database = databaseName, MaxPoolSize = 30 }.ConnectionString;
+        // à la fois et plusieurs séries tournent en parallèle sur le même PostgreSQL (100 connexions
+        // au plus pour toutes les séries : au-delà, PostgreSQL refuse et les demandes échouent).
+        ConnectionString = new NpgsqlConnectionStringBuilder(adminConnection) { Database = databaseName, MaxPoolSize = 16 }.ConnectionString;
         DataSource = NpgsqlDataSource.Create(ConnectionString);
 
         factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -74,10 +75,13 @@ public sealed class ServerFixture : IAsyncLifetime
     }
 
     /// <summary>Nouveau poste connecté avec le compte de caisse, sans employé identifié.</summary>
-    public async Task<HttpClient> CreatePosteClientAsync()
+    public Task<HttpClient> CreatePosteClientAsync() => CreatePosteClientAsync(RegisterLogin, RegisterPassword);
+
+    /// <summary>Nouveau poste connecté avec un autre compte de caisse, sans employé identifié.</summary>
+    public async Task<HttpClient> CreatePosteClientAsync(string login, string password)
     {
         var client = factory!.CreateClient();
-        var response = await client.PostAsJsonAsync(ApiRoutes.PosteSignIn, new PosteSignInRequest(RegisterLogin, RegisterPassword));
+        var response = await client.PostAsJsonAsync(ApiRoutes.PosteSignIn, new PosteSignInRequest(login, password));
         response.EnsureSuccessStatusCode();
         var signedIn = (await response.Content.ReadFromJsonAsync<PosteSignInResponse>())!;
         client.DefaultRequestHeaders.Add(ApiHeaders.PosteToken, signedIn.Token);
