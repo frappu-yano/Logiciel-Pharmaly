@@ -66,6 +66,28 @@ public sealed class SalesWindowTests
     private static string? Text(Control view, string name) => view.FindControl<TextBlock>(name)!.Text;
 
     [AvaloniaFact]
+    public async Task L_etoile_du_clavier_principal_reconnue_au_texte_ouvre_les_especes_sans_rien_ecrire()
+    {
+        server.WithOpenCashSession();
+        var (window, shell) = OpenWindow();
+        await SignInWithKeyboardAsync(window);
+        Press(window, PhysicalKey.F1);
+        await SettleAsync();
+        var view = SalesViewOf(window);
+        var viewModel = Assert.IsType<SalesViewModel>(shell.CurrentModule);
+        await ScanAsync(window, FakeServer.Creme.Barcode!);
+
+        // Disposition où la touche n'apporte pas son symbole : seul le texte « * » arrive.
+        window.KeyTextInput("*");
+        await SettleAsync();
+
+        Assert.Equal(CheckoutStep.CashAmount, viewModel.Step);
+        Assert.Equal(string.Empty, view.FindControl<TextBox>("SearchBox")!.Text ?? string.Empty);
+        Assert.Empty(server.SaleRequests);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public async Task Identification_F1_ouverture_de_caisse_deux_scans_especes_monnaie_puis_vente_suivante()
     {
         var (window, shell) = OpenWindow();

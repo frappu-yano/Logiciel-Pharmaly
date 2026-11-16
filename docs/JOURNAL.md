@@ -151,6 +151,12 @@ dans `DECISIONS.md`), à valider. Le mode secours hors ligne (O4) n'est pas dév
 - Corrigé : un verrouillage volontaire du poste libère aussitôt les bons fournisseurs
   tenus depuis ce poste (D39). **645 tests réussis.**
 - Choix par défaut ajoutés : D32 à D39.
+- Essai Windows en un double-clic (`essai/`) : base d'essai, 2 000 produits fictifs avec
+  stock (`--stock-fictif`), site, compte de caisse, administrateur ; rejoué sur un Windows
+  neuf par l'intégration continue (exécution n° 21 réussie), archive `pharmaly-essai-windows`.
+- Fusionné : écran Caisse (impayés, règlement groupé espèces/TPE, session de caisse,
+  entrées et sorties d'espèces). Corrigé : la touche `*` du clavier principal est reconnue
+  au texte saisi dans l'écran de vente comme dans la caisse. **701 tests réussis.**
 
 
 ## 13/11/2026 — Prototype

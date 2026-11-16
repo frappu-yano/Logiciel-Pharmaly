@@ -44,6 +44,25 @@ public sealed partial class SalesView : UserControl, IModuleView
             },
             RoutingStrategies.Bubble,
             handledEventsToo: true);
+
+        // Le « * » du clavier principal n'arrive pas toujours avec son symbole dans la touche
+        // (selon la disposition du clavier) : il est alors reconnu au texte saisi.
+        AddHandler(TextInputEvent, OnTextInput, RoutingStrategies.Tunnel);
+    }
+
+    private async void OnTextInput(object? sender, TextInputEventArgs e)
+    {
+        if (e.Text != SalesShortcuts.CashSymbol || ViewModel is not { IsCart: true } viewModel)
+        {
+            return;
+        }
+
+        // Jamais écrit dans un champ : sur le panier, il ouvre les espèces ; dans une étape, il est ignoré.
+        e.Handled = true;
+        if (viewModel.IsCartEditable)
+        {
+            await viewModel.BeginCashAsync();
+        }
     }
 
     private SalesViewModel? ViewModel => DataContext as SalesViewModel;
